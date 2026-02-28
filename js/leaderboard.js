@@ -1,54 +1,62 @@
 /* ============================================
-   DUMB GYM TYCOON - Global Leaderboard
+   DUMB GYM TYCOON - Global Leaderboard (v4)
    Supabase backend + localStorage fallback
    ============================================ */
 
 const Leaderboard = {
 
-  // ⬇️ SUPABASE CONFIG - Set these after creating your project!
-  SUPABASE_URL: 'https://ncvxriggroxkpsovpxxk.supabase.co',   // e.g. 'https://abc123.supabase.co'
-  SUPABASE_KEY: 'sb_publishable_SWFqmw5dLAbINWzn4Mb97Q_bYnC-xfk',   // anon/public key
+  // ⬇️ SUPABASE CONFIG
+  SUPABASE_URL: 'https://ncvxriggroxkpsovpxxk.supabase.co',
+  SUPABASE_KEY: 'sb_publishable_SWFqmw5dLAbINWzn4Mb97Q_bYnC-xfk',
 
   data: [],
   lastSync: 0,
   sortBy: 'total_coins',
   loading: false,
+  _submitDebounce: null,  // YENİ: Submit debounce
 
-  /* ---- Check if Supabase is configured ---- */
+  /* ---- Supabase yapılandırılmış mı? ---- */
   isOnline() {
-    return this.SUPABASE_URL && this.SUPABASE_KEY;
+    return this.SUPABASE_URL && this.SUPABASE_KEY &&
+           this.SUPABASE_URL.startsWith('https://') && this.SUPABASE_KEY.length > 10;
   },
 
-  /* ---- Build Player Entry ---- */
+  /* ---- Oyuncu Kaydı Oluştur ---- */
   getPlayerEntry() {
     const s = Game.state;
     return {
       user_id: Auth.getId(),
-      display_name: Auth.getDisplayName(),
+      display_name: Auth.getDisplayName().slice(0, 20), // Güvenlik: max 20 karakter
       wallet: s.walletAddr || null,
       login_method: Auth.user ? Auth.user.method : 'anonymous',
-      level: s.level,
-      prestige: s.prestige,
+      level: clampValue(s.level, 1, 999),
+      prestige: clampValue(s.prestige, 0, 999),
       prestige_mult: s.prestigeMult,
-      total_coins: s.totalCoins,
-      total_clicks: s.totalClicks,
-      bear_kills: s.bearKills,
+      total_coins: clampValue(s.totalCoins, 0, LIMITS.maxCoins),
+      total_clicks: clampValue(s.totalClicks, 0, LIMITS.maxClicks),
+      bear_kills: clampValue(s.bearKills, 0, LIMITS.maxBearKills),
       token_reward: Game.calcTokenReward(),
       updated_at: new Date().toISOString(),
     };
   },
 
-  /* ---- Submit Score ---- */
-  async submit() {
+  /* ---- Skor Gönder (debounced) ---- */
+  submit() {
+    // BUG FIX: Her 15sn'de 1'den fazla istek engelle
+    if (this._submitDebounce) clearTimeout(this._submitDebounce);
+    this._submitDebounce = setTimeout(() => this._doSubmit(), 1000);
+  },
+
+  async _doSubmit() {
     const entry = this.getPlayerEntry();
 
-    // Always save locally
+    // Her zaman yerel kaydet
     this._saveLocal(entry);
 
-    // Submit to Supabase if configured
+    // Supabase'e gönder
     if (this.isOnline()) {
       try {
-        await fetch(this.SUPABASE_URL + '/rest/v1/leaderboard', {
+        const res = await fetch(this.SUPABASE_URL + '/rest/v1/leaderboard', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -58,18 +66,27 @@ const Leaderboard = {
           },
           body: JSON.stringify(entry),
         });
-      } catch (e) { /* offline, local saved */ }
+        if (!res.ok) {
+          console.warn('Leaderboard submit failed:', res.status);
+        }
+      } catch (e) {
+        // Çevrimdışı, yerel kaydedildi
+        console.warn('Leaderboard submit offline');
+      }
     }
   },
 
-  /* ---- Fetch Leaderboard ---- */
+  /* ---- Leaderboard Getir ---- */
   async fetch() {
-    // Supabase: fetch global data
+    if (this.loading) return;
+
+    // Supabase: Global veri getir (15sn cache)
     if (this.isOnline() && Date.now() - this.lastSync > 15000) {
+      this.loading = true;
       try {
         const col = this.sortBy;
         const res = await fetch(
-          this.SUPABASE_URL + '/rest/v1/leaderboard?select=*&order=' + col + '.desc&limit=50',
+          this.SUPABASE_URL + '/rest/v1/leaderboard?select=*&order=' + encodeURIComponent(col) + '.desc&limit=50',
           {
             headers: {
               'apikey': this.SUPABASE_KEY,
@@ -80,19 +97,24 @@ const Leaderboard = {
         if (res.ok) {
           this.data = await res.json();
           this.lastSync = Date.now();
+          this.loading = false;
           return;
         }
-      } catch (e) { /* fallback */ }
+      } catch (e) {
+        console.warn('Leaderboard fetch failed');
+      }
+      this.loading = false;
     }
 
     // Fallback: localStorage
     this.data = this._loadLocal();
   },
 
-  /* ---- Local Storage Fallback ---- */
+  /* ---- Yerel Depolama Yedek ---- */
   _saveLocal(entry) {
     try {
       let board = JSON.parse(localStorage.getItem('dumbgym_lb') || '[]');
+      if (!Array.isArray(board)) board = [];
       const idx = board.findIndex(e => e.user_id === entry.user_id);
       if (idx >= 0) board[idx] = entry;
       else board.push(entry);
@@ -105,6 +127,7 @@ const Leaderboard = {
   _loadLocal() {
     try {
       const board = JSON.parse(localStorage.getItem('dumbgym_lb') || '[]');
+      if (!Array.isArray(board)) return [];
       board.sort((a, b) => (b[this.sortBy] || 0) - (a[this.sortBy] || 0));
       return board;
     } catch (e) { return []; }
@@ -127,7 +150,7 @@ const Leaderboard = {
     html += '<div class="lb-subtitle">' + (this.isOnline() ? '🌐 Live Global Rankings' : '📱 Local Rankings — Setup Supabase for global!') + '</div>';
     html += '</div>';
 
-    // Sort buttons
+    // Sort butonları
     html += '<div class="lb-sorts">';
     [
       { key: 'total_coins', label: '💰 Coins' },
@@ -141,7 +164,7 @@ const Leaderboard = {
     });
     html += '</div>';
 
-    // Entries
+    // Kayıtlar
     if (this.data.length === 0) {
       html += '<div class="lb-empty"><div style="font-size:40px;margin-bottom:10px">🏋️</div>';
       html += '<div>No players yet! Start lifting!</div></div>';
@@ -152,17 +175,19 @@ const Leaderboard = {
         const isMe = entry.user_id === myId;
         const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '#' + rank;
 
-        // Avatar based on login method
         let avatar = '👤';
         if (entry.login_method === 'telegram') avatar = '📱';
         else if (entry.login_method === 'wallet' || entry.wallet) avatar = '🔗';
 
+        // BUG FIX: XSS koruması - escapeHtml kullan
+        const safeName = escapeHtml(entry.display_name || 'Anonymous');
+
         html += '<div class="lb-entry' + (isMe ? ' lb-me' : '') + (rank <= 3 ? ' lb-top3' : '') + '">';
         html += '<div class="lb-rank">' + medal + '</div>';
         html += '<div class="lb-info">';
-        html += '<div class="lb-name">' + avatar + ' ' + (entry.display_name || 'Anonymous') + (isMe ? ' (YOU)' : '') + '</div>';
+        html += '<div class="lb-name">' + avatar + ' ' + safeName + (isMe ? ' (YOU)' : '') + '</div>';
         html += '<div class="lb-details">';
-        html += 'Lvl ' + entry.level + ' · ⭐' + entry.prestige + ' · 🐻 ' + (entry.bear_kills || 0);
+        html += 'Lvl ' + (entry.level || 1) + ' · ⭐' + (entry.prestige || 0) + ' · 🐻 ' + (entry.bear_kills || 0);
         if (entry.wallet) html += ' · 🔗' + entry.wallet.slice(0, 4);
         html += '</div></div>';
         html += '<div class="lb-score">' + formatNum(entry[this.sortBy] || 0) + '</div>';
@@ -170,14 +195,14 @@ const Leaderboard = {
       });
     }
 
-    // My rank
+    // Benim sıramam
     const sorted = [...this.data].sort((a, b) => (b[this.sortBy] || 0) - (a[this.sortBy] || 0));
     const myRank = sorted.findIndex(e => e.user_id === myId) + 1;
     if (myRank > 0) {
       html += '<div class="lb-myrank">Your Rank: #' + myRank + ' of ' + sorted.length + '</div>';
     }
 
-    // Login CTA
+    // Giriş çağrısı
     if (!Auth.user) {
       html += '<div class="lb-cta">';
       html += '<div style="font-size:13px;color:#aaa;margin-bottom:8px">Login to claim your spot!</div>';
@@ -185,20 +210,20 @@ const Leaderboard = {
       html += '</div>';
     }
 
-    // Share
+    // Paylaş
     const me = this.getPlayerEntry();
     const tweet = '👑 #' + (myRank || '?') + ' on DUMB GYM TYCOON!\n\n💰 ' + formatNum(me.total_coins) +
       '\n⭐ Lvl ' + me.level + ' · Prestige ' + me.prestige +
       '\n🐻 ' + me.bear_kills + ' bears\n\nBeat me! 💪\n\nCA: ' + CA + '\n#DUMB #Solana';
     html += '<div style="text-align:center;margin-top:12px">';
-    html += '<a class="share-btn" href="https://twitter.com/intent/tweet?text=' + encodeURIComponent(tweet) + '" target="_blank">Share Rank on 𝕏 🐦</a></div>';
+    html += '<a class="share-btn" href="https://twitter.com/intent/tweet?text=' + encodeURIComponent(tweet) + '" target="_blank" rel="noopener">Share Rank on 𝕏 🐦</a></div>';
 
     panel.innerHTML = html;
   },
 
   changeSort(key) {
     this.sortBy = key;
-    this.lastSync = 0; // Force refetch
+    this.lastSync = 0;
     this.render();
   },
 };

@@ -1,5 +1,5 @@
 /* ============================================
-   DUMB GYM TYCOON - UI Layer
+   DUMB GYM TYCOON - UI Layer (v4)
    Rendering, input, bears, tabs
    ============================================ */
 
@@ -9,6 +9,10 @@ const UI = {
   dumbFrame: 0,
   dumbResetTimer: null,
   idleAccumulator: 0,
+  _activePopCount: 0,    // BUG FIX: Pop element sayacı
+  _activeParticles: 0,   // BUG FIX: Parçacık sayacı
+  _activeToasts: 0,      // BUG FIX: Toast sayacı
+  _buyMode: '1x',        // YENİ: Satın alma modu
 
   // ==================== BEAR STATE ====================
   bear: {
@@ -18,6 +22,7 @@ const UI = {
     timer: 0,
     type: '',
     interval: null,
+    _paused: false,
   },
 
   // ==================== STATS UPDATE ====================
@@ -30,9 +35,9 @@ const UI = {
     document.getElementById('statPre').textContent = '⭐' + s.prestige;
     document.getElementById('totalLifts').textContent = formatNum(s.totalLifts);
 
-    // Combo indicator
+    // Combo göstergesi - BUG FIX: Combo window ile tutarlı zamanlama
     const comboEl = document.getElementById('comboIndicator');
-    if (s.comboCount >= 10 && Date.now() - s.comboTime < 600) {
+    if (s.comboCount >= 10 && Date.now() - s.comboTime < COMBO_DISPLAY_MS) {
       const mult = s.comboCount >= 30 ? 5 : s.comboCount >= 20 ? 3 : 2;
       comboEl.textContent = '🔥 COMBO x' + mult + ' (' + s.comboCount + ' hits)';
       comboEl.classList.add('show');
@@ -40,20 +45,33 @@ const UI = {
       comboEl.classList.remove('show');
     }
 
-    // Level progress bar
-    const nxt = Math.floor(80 * Math.pow(1.35, s.level - 1) * s.level);
-    const prev = s.level > 1 ? Math.floor(80 * Math.pow(1.35, s.level - 2) * (s.level - 1)) : 0;
-    const pct = Math.min(100, Math.max(0, ((s.sessionCoins - prev) / (nxt - prev)) * 100));
+    // Level ilerleme çubuğu - BUG FIX: Doğru hesaplama
+    const nxt = Game.getLevelThreshold(s.level);
+    const prev = s.level > 1 ? Game.getLevelThreshold(s.level - 1) : 0;
+    const range = nxt - prev;
+    const pct = range > 0 ? Math.min(100, Math.max(0, ((s.sessionCoins - prev) / range) * 100)) : 0;
     document.getElementById('lvlBar').style.width = pct + '%';
 
-    // Streak banner
+    // Streak banner - YENİ: Daha fazla streak seviyesi
     const banner = document.getElementById('streakBanner');
     if (s.streak >= 3) {
-      const mult = s.streak >= 7 ? '1.5' : '1.2';
+      const mult = s.streak >= 30 ? '2.0' : s.streak >= 14 ? '1.75' : s.streak >= 7 ? '1.5' : '1.2';
       banner.textContent = '🔥 Day ' + s.streak + ' Streak! ' + mult + 'x bonus!';
       banner.classList.add('show');
     } else {
       banner.classList.remove('show');
+    }
+
+    // Boost timer göstergesi (YENİ)
+    const boostEl = document.getElementById('boostTimer');
+    if (boostEl) {
+      if (s.boostUntil && Date.now() < s.boostUntil) {
+        const remaining = Math.ceil((s.boostUntil - Date.now()) / 1000);
+        boostEl.textContent = '⚡ 2x Boost: ' + remaining + 's';
+        boostEl.classList.add('show');
+      } else {
+        boostEl.classList.remove('show');
+      }
     }
   },
 
@@ -61,30 +79,36 @@ const UI = {
   doClick(e) {
     const s = Game.state;
     
-    // Combo system
+    // Combo sistemi - BUG FIX: Tutarlı window
     const now = Date.now();
-    if (now - s.comboTime < 400) {
-      s.comboCount = Math.min(s.comboCount + 1, 50);
+    if (now - s.comboTime < COMBO_WINDOW_MS) {
+      s.comboCount = Math.min(s.comboCount + 1, MAX_COMBO);
     } else {
       s.comboCount = 1;
     }
     s.comboTime = now;
+    
+    // Maks combo takibi (YENİ)
+    if (s.comboCount > (s.maxCombo || 0)) {
+      s.maxCombo = s.comboCount;
+    }
     
     const comboMult = s.comboCount >= 30 ? 5 : s.comboCount >= 20 ? 3 : s.comboCount >= 10 ? 2 : 1;
     const earned = s.clickPower * comboMult;
     
     s.totalClicks++;
     s.totalLifts++;
+    s.dailyClicks++;
     Game.addCoins(earned);
 
-    // Mr. DUMB animation
+    // Mr. DUMB animasyonu
     UI.dumbFrame = (UI.dumbFrame + 1) % 2;
     const img = document.getElementById('dumbImg');
     img.src = UI.dumbFrame === 0 ? 'assets/dumb_lift.png' : 'assets/dumb_lift2.png';
     clearTimeout(UI.dumbResetTimer);
     UI.dumbResetTimer = setTimeout(() => { img.src = 'assets/dumb_idle.png'; }, 180);
 
-    // Click position
+    // Tıklama pozisyonu
     const rect = document.getElementById('clickArea').getBoundingClientRect();
     let cx, cy;
     if (e.touches) {
@@ -102,30 +126,42 @@ const UI = {
     UI.spawnClickPop(cx, cy, label);
     UI.spawnParticles(cx, cy, Math.min(4 + Math.floor(s.comboCount / 5), 10));
     
-    // Sound
+    // Ses
     if (s.comboCount >= 10) SFX.clickCombo(s.comboCount);
     else SFX.click();
     
-    // Haptic feedback
+    // Titreşim geri bildirimi
     if (navigator.vibrate) navigator.vibrate(15);
     
     Game.checkLevel();
+    Game.checkDailyChallenge();
     UI.updateStats();
   },
 
+  // BUG FIX: Performans - element sayısı sınırlaması
   spawnClickPop(x, y, text) {
+    if (this._activePopCount >= MAX_CLICK_POPS) return;
+    this._activePopCount++;
     const el = document.createElement('div');
     el.className = 'click-pop';
     el.textContent = text;
     el.style.left = (x - 20) + 'px';
     el.style.top = (y - 25) + 'px';
     document.getElementById('gymView').appendChild(el);
-    setTimeout(() => el.remove(), 700);
+    setTimeout(() => {
+      el.remove();
+      this._activePopCount--;
+    }, 700);
   },
 
   spawnParticles(x, y, count) {
+    const available = MAX_PARTICLES - this._activeParticles;
+    const actualCount = Math.min(count, available);
+    if (actualCount <= 0) return;
+
     const colors = ['#FFD700', '#FF4444', '#FF8800', '#00FF66'];
-    for (let i = 0; i < count; i++) {
+    for (let i = 0; i < actualCount; i++) {
+      this._activeParticles++;
       const p = document.createElement('div');
       p.className = 'click-particle';
       p.style.left = x + 'px';
@@ -134,7 +170,10 @@ const UI = {
       p.style.setProperty('--px', (Math.random() - 0.5) * 70 + 'px');
       p.style.setProperty('--py', (Math.random() * -50 - 15) + 'px');
       document.getElementById('gymView').appendChild(p);
-      setTimeout(() => p.remove(), 500);
+      setTimeout(() => {
+        p.remove();
+        this._activeParticles--;
+      }, 500);
     }
   },
 
@@ -179,8 +218,8 @@ const UI = {
     document.getElementById('bearImg').style.width = def.size;
     document.getElementById('bearHpFill').style.width = '100%';
 
-    const rewards = { small: Game.state.clickPower * 8, big: Game.state.clickPower * 25, boss: Game.state.clickPower * 80 };
-    document.getElementById('bearReward').textContent = 'Reward: ' + formatNum(rewards[this.bear.type]) + ' coins';
+    const reward = Game.state.clickPower * def.rewardMult;
+    document.getElementById('bearReward').textContent = 'Reward: ' + formatNum(reward) + ' coins';
 
     document.getElementById('bearImg').onclick = () => UI.hitBear();
     SFX.bearAttack();
@@ -197,11 +236,15 @@ const UI = {
     if (!this.bear.active) return;
     SFX.bearHit();
 
-    const dmg = Math.max(1, Math.ceil(Math.sqrt(Game.state.clickPower)));
+    // BUG FIX: Hasar formülü dengelendi - artık daha adil
+    // Eski: Math.ceil(Math.sqrt(clickPower)) - çok düşük hasar, boss öldüremezdin
+    // Yeni: Logaritmik + sabit baz hasar, yüksek seviyede bear yenilebilir
+    const cp = Game.state.clickPower;
+    const dmg = Math.max(1, Math.floor(Math.pow(cp, 0.4) + cp * 0.01 + 1));
     this.bear.hp -= dmg;
     document.getElementById('bearHpFill').style.width = Math.max(0, (this.bear.hp / this.bear.maxHp) * 100) + '%';
 
-    // Hit animation
+    // Vuruş animasyonu
     const img = document.getElementById('bearImg');
     img.style.transform = 'scale(.82)';
     setTimeout(() => { img.style.transform = ''; }, 80);
@@ -213,14 +256,18 @@ const UI = {
       const def = BEARS[this.bear.type];
       img.src = 'assets/' + def.ko + '.png';
 
-      const rewards = { small: Game.state.clickPower * 8, big: Game.state.clickPower * 25, boss: Game.state.clickPower * 80 };
-      const reward = rewards[this.bear.type];
+      const reward = Game.state.clickPower * def.rewardMult;
       Game.addCoins(reward);
       Game.state.bearKills++;
+      Game.state.dailyBears++;
+      if (this.bear.type === 'boss') Game.state.totalBearBossKills++;
 
       this.toast('🐻 Defeated! +' + formatNum(reward));
       SFX.bearKill();
       setTimeout(() => { document.getElementById('bearAttack').classList.remove('active'); }, 800);
+      
+      Game.checkDailyChallenge();
+      Game.checkMilestones();
       this.updateStats();
     }
   },
@@ -239,9 +286,16 @@ const UI = {
     let html = '';
     let lastCat = '';
 
+    // YENİ: Satın alma modu düğmesi
+    html += '<div class="buy-mode-bar">';
+    html += '<span style="font-size:11px;color:#888">Buy Mode:</span>';
+    html += '<button class="buy-mode-btn' + (this._buyMode === '1x' ? ' active' : '') + '" onclick="UI._buyMode=\'1x\';UI.renderShop()">1x</button>';
+    html += '<button class="buy-mode-btn' + (this._buyMode === '10x' ? ' active' : '') + '" onclick="UI._buyMode=\'10x\';UI.renderShop()">10x</button>';
+    html += '</div>';
+
     UPGRADES.forEach(u => {
       if (u.cat !== lastCat) {
-        html += '<div class="shop-category">' + u.cat + '</div>';
+        html += '<div class="shop-category">' + escapeHtml(u.cat) + '</div>';
         lastCat = u.cat;
       }
 
@@ -250,31 +304,47 @@ const UI = {
       const canBuy = Game.state.coins >= cost && owned < u.max;
       const maxed = owned >= u.max;
 
-      // Icon
+      // İkon
       let iconHtml;
-      if (u.icon === 'mini')      iconHtml = '<img src="assets/dumb_idle.png">';
-      else if (u.icon === 'bro')  iconHtml = '<img src="assets/dumb_lift.png">';
-      else if (u.icon === 'eq')   iconHtml = '<img src="assets/bag.png">';
-      else if (u.icon === 'eq2')  iconHtml = '<img src="assets/coin.png">';
+      if (u.icon === 'mini')      iconHtml = '<img src="assets/dumb_idle.png" alt="">';
+      else if (u.icon === 'bro')  iconHtml = '<img src="assets/dumb_lift.png" alt="">';
+      else if (u.icon === 'eq')   iconHtml = '<img src="assets/bag.png" alt="">';
+      else if (u.icon === 'eq2')  iconHtml = '<img src="assets/coin.png" alt="">';
       else                        iconHtml = '<span>' + u.icon + '</span>';
+
+      // YENİ: ROI göstergesi (yatırım geri dönüşü)
+      let roiText = '';
+      if (!maxed && u.effect.ps) {
+        const nextPs = u.effect.ps;
+        const paybackSec = cost / nextPs;
+        roiText = '<div class="shop-roi">ROI: ' + formatTime(paybackSec) + '</div>';
+      }
 
       html += '<div class="shop-item' + (canBuy ? ' affordable' : '') + (maxed ? ' maxed' : '') + '" data-id="' + u.id + '">';
       html += '<div class="shop-icon">' + iconHtml + '</div>';
-      html += '<div style="flex:1"><div class="shop-name">' + u.name + '</div>';
-      html += '<div class="shop-desc">' + u.desc + '</div>';
-      html += '<div class="shop-owned">Owned: ' + owned + (u.max < 200 ? ' / ' + u.max : '') + '</div></div>';
+      html += '<div style="flex:1"><div class="shop-name">' + escapeHtml(u.name) + '</div>';
+      html += '<div class="shop-desc">' + escapeHtml(u.desc) + '</div>';
+      html += '<div class="shop-owned">Owned: ' + owned + (u.max < 200 ? ' / ' + u.max : '') + '</div>';
+      html += roiText;
+      html += '</div>';
       html += '<div class="shop-cost' + (canBuy ? '' : ' expensive') + '">' + (maxed ? 'MAX' : formatNum(cost)) + '</div>';
       html += '</div>';
     });
 
     panel.innerHTML = html;
 
-    // Click handlers
+    // Click handler'lar
     panel.querySelectorAll('.shop-item:not(.maxed)').forEach(el => {
-      el.onclick = () => Game.buyUpgrade(el.dataset.id);
+      el.onclick = () => {
+        if (UI._buyMode === '10x') {
+          Game.buyUpgradeMax(el.dataset.id);
+        } else {
+          Game.buyUpgrade(el.dataset.id);
+        }
+      };
     });
 
-    // Shop notification dot
+    // Shop bildirim noktası
     const any = UPGRADES.some(u => Game.state.coins >= Game.getUpgradeCost(u) && Game.getOwned(u.id) < u.max);
     document.getElementById('shopNotif').style.display = any ? 'block' : 'none';
   },
@@ -285,33 +355,62 @@ const UI = {
     const s = Game.state;
     let html = '';
 
+    // Daily Challenge (YENİ)
+    const dc = Game.getDailyChallenge();
+    if (dc) {
+      const dcPct = Math.min(100, (dc.current / dc.target) * 100);
+      html += '<div class="daily-challenge-box">';
+      html += '<h3>🎯 Daily Challenge</h3>';
+      html += '<div class="dc-name">' + escapeHtml(dc.name) + '</div>';
+      html += '<div class="dc-desc">' + escapeHtml(dc.desc.replace('{t}', formatNum(dc.target))) + '</div>';
+      if (dc.complete) {
+        html += '<div class="dc-complete">✅ COMPLETE!</div>';
+      } else {
+        html += '<div class="dc-progress-text">' + formatNum(dc.current) + ' / ' + formatNum(dc.target) + '</div>';
+        html += '<div class="ms-progress"><div class="ms-progress-fill dc-fill" style="width:' + dcPct + '%"></div></div>';
+        html += '<div class="dc-reward">Reward: ' + formatNum(dc.reward) + ' coins</div>';
+      }
+      html += '</div>';
+    }
+
     // Lucky Spin
-    const canSpin = Date.now() - s.luckySpinTime > 300000;
+    const canSpin = Date.now() - s.luckySpinTime > LUCKY_SPIN_COOLDOWN;
+    const spinCooldown = Math.max(0, Math.ceil((LUCKY_SPIN_COOLDOWN - (Date.now() - s.luckySpinTime)) / 1000));
     html += '<div class="lucky-box"><h3>🎰 Lucky Spin</h3>';
     html += '<div style="font-size:12px;color:#888;margin-bottom:8px">Spin every 5 minutes for bonus rewards!</div>';
-    html += '<button class="lucky-btn" ' + (canSpin ? 'onclick="Game.luckySpin()"' : 'disabled') + '>' + (canSpin ? 'SPIN! 🎰' : 'Cooldown...') + '</button>';
+    html += '<button class="lucky-btn" ' + (canSpin ? 'onclick="Game.luckySpin()"' : 'disabled') + '>';
+    html += canSpin ? 'SPIN! 🎰' : 'Wait ' + formatTime(spinCooldown) + '...';
+    html += '</button>';
     html += '<div class="lucky-result" id="luckyResult"></div></div>';
 
     // Milestones
-    MILESTONES.forEach(m => {
+    // Tamamlanmayanlar önce, tamamlananlar sona
+    const sorted = [...MILESTONES].sort((a, b) => {
+      const aDone = s.milestones[a.id] ? 1 : 0;
+      const bDone = s.milestones[b.id] ? 1 : 0;
+      return aDone - bDone;
+    });
+
+    sorted.forEach(m => {
       const done = s.milestones[m.id] || false;
       const cur = m.current();
       const pct = Math.min(100, (cur / m.target) * 100);
 
       html += '<div class="milestone-item' + (done ? ' done' : '') + '">';
       html += '<div class="ms-check">' + (done ? '✅' : '⬜') + '</div>';
-      html += '<div style="flex:1"><div class="ms-title">' + m.name + '</div>';
-      html += '<div class="ms-desc">' + m.desc + '</div>';
+      html += '<div style="flex:1"><div class="ms-title">' + escapeHtml(m.name) + '</div>';
+      html += '<div class="ms-desc">' + escapeHtml(m.desc) + '</div>';
       if (!done && m.reward > 0) html += '<div class="ms-reward">Reward: ' + formatNum(m.reward) + '</div>';
       if (!done) html += '<div class="ms-progress"><div class="ms-progress-fill" style="width:' + pct + '%"></div></div>';
       html += '</div></div>';
     });
 
-    // Twitter share
+    // Twitter paylaşımı
+    const completedCount = MILESTONES.filter(m => s.milestones[m.id]).length;
     const tweetText = '🏋️ DUMB GYM TYCOON\n\n💰 ' + formatNum(s.totalCoins) + ' coins\n🏋️ ' + formatNum(s.totalLifts) +
-      ' bags lifted\n⭐ Level ' + s.level + '\n🐻 ' + s.bearKills + ' bears killed\n\nCan you lift more?\n\nCA: ' + CA + '\n#DUMB #Solana';
+      ' bags lifted\n⭐ Level ' + s.level + '\n🐻 ' + s.bearKills + ' bears killed\n🏆 ' + completedCount + '/' + MILESTONES.length + ' goals\n\nCan you lift more?\n\nCA: ' + CA + '\n#DUMB #Solana';
     html += '<div style="text-align:center;margin-top:12px">';
-    html += '<a class="share-btn" href="https://twitter.com/intent/tweet?text=' + encodeURIComponent(tweetText) + '" target="_blank">Share on Twitter 🐦</a></div>';
+    html += '<a class="share-btn" href="https://twitter.com/intent/tweet?text=' + encodeURIComponent(tweetText) + '" target="_blank" rel="noopener">Share on Twitter 🐦</a></div>';
 
     panel.innerHTML = html;
   },
@@ -334,21 +433,32 @@ const UI = {
     html += canPrestige ? 'PRESTIGE ⭐' : 'Need Lvl 20 (Now: ' + s.level + ')';
     html += '</button></div>';
 
-    // Token rewards
+    // Token ödülleri
     html += '<div class="token-box"><h4>🪙 $DUMB Token Rewards</h4>';
     html += '<div style="font-size:12px;color:#888;margin-bottom:8px">Connect wallet to earn $DUMB tokens!</div>';
     html += '<div style="font-size:14px;color:var(--gold);margin-bottom:4px">Pending: ' + formatNum(Game.calcTokenReward()) + ' $DUMB</div>';
     html += '<div style="font-size:10px;color:#666">Claim at prestige milestones</div></div>';
 
-    // Lifetime stats
+    // Yaşam istatistikleri
     html += '<div class="lifetime-stats"><h4>📊 Lifetime Stats</h4><div class="stats-grid">';
     html += '<div>Total Coins: <b style="color:var(--gold)">' + formatNum(s.totalCoins) + '</b></div>';
     html += '<div>Total Clicks: <b style="color:var(--gold)">' + formatNum(s.totalClicks) + '</b></div>';
     html += '<div>Bears Killed: <b style="color:var(--red)">' + s.bearKills + '</b></div>';
+    html += '<div>Boss Bears: <b style="color:var(--red)">' + (s.totalBearBossKills || 0) + '</b></div>';
     html += '<div>Prestiges: <b style="color:var(--purple)">' + s.prestige + '</b></div>';
+    html += '<div>Highest Level: <b style="color:var(--blue)">' + (s.highestLevel || s.level) + '</b></div>';
     html += '<div>Play Time: <b style="color:var(--blue)">' + Game.getPlayTime() + '</b></div>';
-    html += '<div>Level: <b style="color:var(--blue)">' + s.level + '</b></div>';
+    html += '<div>Max Combo: <b style="color:var(--orange)">' + (s.maxCombo || 0) + 'x</b></div>';
+    html += '<div>Total Upgrades: <b style="color:var(--green)">' + (s.totalUpgradesBought || 0) + '</b></div>';
+    html += '<div>Lucky Spins: <b style="color:var(--orange)">' + (s.totalSpins || 0) + '</b></div>';
+    html += '<div>Day Streak: <b style="color:var(--orange)">' + s.streak + '</b></div>';
+    html += '<div>Current Level: <b style="color:var(--blue)">' + s.level + '</b></div>';
     html += '</div></div>';
+
+    // Sıfırlama butonu
+    html += '<div style="text-align:center;margin-top:16px">';
+    html += '<button onclick="if(confirm(\'Bu işlem tüm ilerlemeyi silecek! Emin misin?\')){localStorage.clear();location.reload()}" style="font-size:11px;padding:6px 14px;border:1px solid #333;background:transparent;color:#555;cursor:pointer;border-radius:6px">🗑️ Reset All Data</button>';
+    html += '</div>';
 
     panel.innerHTML = html;
   },
@@ -363,8 +473,8 @@ const UI = {
     document.getElementById('lbPanel').classList.toggle('active', tab === 'lb');
     document.getElementById('prePanel').classList.toggle('active', tab === 'pre');
 
-    // Pause/resume bear timer on tab switch
-    if (tab !== 'gym' && this.bear.active) {
+    // Bear timer'ı tab geçişinde duraklat/devam ettir
+    if (tab !== 'gym' && this.bear.active && !this.bear._paused) {
       clearInterval(this.bear.interval);
       this.bear._paused = true;
     } else if (tab === 'gym' && this.bear._paused && this.bear.active) {
@@ -383,12 +493,27 @@ const UI = {
   },
 
   // ==================== TOAST ====================
+  // BUG FIX: Toast sayısı sınırlaması
   toast(msg) {
+    if (this._activeToasts >= MAX_TOASTS) {
+      // En eski toast'u sil
+      const oldest = document.querySelector('.toast');
+      if (oldest) {
+        oldest.remove();
+        this._activeToasts--;
+      }
+    }
+    this._activeToasts++;
     const el = document.createElement('div');
     el.className = 'toast';
     el.textContent = msg;
+    // YENİ: Çoklu toast pozisyon ayarı
+    el.style.top = (15 + (this._activeToasts - 1) * 42) + 'px';
     document.body.appendChild(el);
-    setTimeout(() => el.remove(), 2200);
+    setTimeout(() => {
+      el.remove();
+      this._activeToasts = Math.max(0, this._activeToasts - 1);
+    }, 2200);
   },
 
   // ==================== MODAL HELPERS ====================

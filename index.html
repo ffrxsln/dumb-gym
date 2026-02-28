@@ -4,7 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <title>DUMB GYM TYCOON - $DUMB on Solana</title>
+  <meta name="description" content="Lift bags, crush bears, earn $DUMB tokens! The ultimate crypto idle clicker game on Solana.">
+  <meta name="theme-color" content="#0d0808">
+  <meta property="og:title" content="DUMB GYM TYCOON - $DUMB on Solana">
+  <meta property="og:description" content="Lift bags, crush bears, earn $DUMB tokens!">
+  <meta property="og:type" content="website">
   <link rel="icon" href="assets/coin.png">
+  <link rel="apple-touch-icon" href="assets/coin.png">
   <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Outfit:wght@400;600;700;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
 </head>
@@ -13,16 +19,19 @@
   <!-- HEADER -->
   <div class="hdr">
     <div class="logo">DUMB GYM</div>
-    <button class="wallet-btn" id="walletBtn" onclick="Auth.showLogin()">👤 Login</button>
-    <button class="sound-btn" id="soundBtn" onclick="SFX.init();const on=SFX.toggle();this.textContent=on?'🔊':'🔇'">🔊</button>
-    <div class="coins-box">
-      <img src="assets/coin.png" alt="coin">
+    <button class="wallet-btn" id="walletBtn" onclick="Auth.showLogin()" aria-label="Login">👤 Login</button>
+    <button class="sound-btn" id="soundBtn" onclick="SFX.init();const on=SFX.toggle();this.textContent=on?'🔊':'🔇'" aria-label="Toggle sound">🔊</button>
+    <div class="coins-box" aria-label="Coins">
+      <img src="assets/coin.png" alt="coin" width="22" height="22">
       <span id="coinCount">0</span>
     </div>
   </div>
 
   <!-- LEVEL BAR -->
-  <div class="lvl-bar"><div class="lvl-fill" id="lvlBar"></div></div>
+  <div class="lvl-bar" role="progressbar"><div class="lvl-fill" id="lvlBar"></div></div>
+
+  <!-- BOOST TIMER (YENİ) -->
+  <div class="boost-timer" id="boostTimer"></div>
 
   <!-- STREAK BANNER -->
   <div class="streak-banner" id="streakBanner">🔥 Day 3 Streak! 2x bonus active!</div>
@@ -43,8 +52,8 @@
 
     <!-- GYM VIEW -->
     <div class="gym" id="gymView">
-      <div class="click-area" id="clickArea">
-        <img id="dumbImg" src="assets/dumb_idle.png" alt="Mr. DUMB">
+      <div class="click-area" id="clickArea" role="button" aria-label="Click to lift">
+        <img id="dumbImg" src="assets/dumb_idle.png" alt="Mr. DUMB" width="260" height="260">
       </div>
       <div class="lift-counter">Total bags: <b id="totalLifts">0</b></div>
       <div class="gym-floor"></div>
@@ -52,7 +61,7 @@
       <!-- BEAR ATTACK OVERLAY -->
       <div class="bear-attack" id="bearAttack">
         <div class="bear-label" id="bearLabel">🐻 BEAR ATTACK!</div>
-        <img class="bear-img" id="bearImg" alt="Bear">
+        <img class="bear-img" id="bearImg" alt="Bear" width="100" height="100">
         <div class="bear-hp"><div class="bear-hp-fill" id="bearHpFill" style="width:100%"></div></div>
         <div class="bear-timer" id="bearTimer">10s</div>
         <div class="bear-reward" id="bearReward">Reward: 100 coins</div>
@@ -76,7 +85,7 @@
   <div class="tabs">
     <div class="tab active" data-tab="gym">🏋️ Gym</div>
     <div class="tab" data-tab="shop">🛒 Shop<span class="tab-notif" id="shopNotif"></span></div>
-    <div class="tab" data-tab="ms">🏆 Goals</div>
+    <div class="tab" data-tab="ms">🎯 Goals</div>
     <div class="tab" data-tab="lb">👑 Top</div>
     <div class="tab" data-tab="pre">⭐ More</div>
   </div>
@@ -84,15 +93,15 @@
   <div class="ca-text">$DUMB on Solana | CA: 8DodKZzn1PnbmiJTKhavVxqpsTMiepHSuqwTKnDSpump</div>
 
   <!-- MODALS -->
-  <div class="modal" id="offlineModal">
-    <h2>Welcome Back! 🏋️</h2>
+  <div class="modal" id="offlineModal" role="dialog" aria-labelledby="offlineTitle">
+    <h2 id="offlineTitle">Welcome Back! 🏋️</h2>
     <div class="modal-sub" id="offlineDur">You were away for 2h 30m</div>
     <div class="modal-big" id="offlineAmt">+12,500</div>
     <div class="modal-desc">coins earned while away</div>
     <button class="btn-primary" onclick="SFX.init();SFX.coin();UI.closeOffline()">COLLECT 💰</button>
   </div>
 
-  <div class="modal" id="prestigeConfirm">
+  <div class="modal" id="prestigeConfirm" role="dialog">
     <h2 style="color:var(--purple)">⭐ PRESTIGE? ⭐</h2>
     <div class="modal-desc" style="color:#ff8888;max-width:300px">
       All coins, upgrades, and levels will reset!<br><br>
@@ -104,13 +113,13 @@
     </div>
   </div>
 
-  <div class="modal" id="walletModal">
+  <div class="modal" id="walletModal" role="dialog">
     <h2>🔗 Profile</h2>
     <div class="modal-desc" id="walletMsg">Loading...</div>
     <button class="btn-primary" onclick="UI.closeWallet()">OK</button>
   </div>
 
-  <div class="modal" id="loginModal">
+  <div class="modal" id="loginModal" role="dialog">
     <h2 style="color:var(--gold)">👤 JOIN THE GAME</h2>
     <div class="modal-desc" style="max-width:300px;margin-bottom:12px">
       Login to save your progress and compete globally!
@@ -119,6 +128,7 @@
       <div class="login-option">
         <div style="font-size:13px;color:#aaa;margin-bottom:6px">Choose a username:</div>
         <input type="text" id="usernameInput" placeholder="Your name..." maxlength="20"
+          autocomplete="off" spellcheck="false"
           style="width:100%;padding:10px;border:2px solid var(--gold);border-radius:8px;
           background:#1a0a0a;color:var(--gold);font-size:16px;text-align:center;
           font-family:Outfit,sans-serif;outline:none">

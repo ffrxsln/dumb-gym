@@ -1,5 +1,5 @@
 /* ============================================
-   DUMB GYM TYCOON - Stylesheet
+   DUMB GYM TYCOON - Stylesheet (v4)
    $DUMB on Solana
    ============================================ */
 
@@ -23,6 +23,7 @@ body {
   overflow-x: hidden;
   user-select: none;
   -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
   height: 100vh;
   height: 100dvh;
   display: flex;
@@ -37,6 +38,7 @@ body {
   width: 100%; max-width: 520px; padding: 8px 14px;
   display: flex; justify-content: space-between; align-items: center;
   border-bottom: 2px solid #2a1a1a; background: #110808;
+  gap: 6px;
 }
 .logo {
   font-family: 'Bangers', cursive; font-size: 26px;
@@ -46,18 +48,20 @@ body {
   font-family: 'Outfit', sans-serif; font-size: 12px; font-weight: 700;
   padding: 5px 14px; border: 2px solid var(--purple); border-radius: 16px;
   background: transparent; color: var(--purple); cursor: pointer; transition: .2s;
+  white-space: nowrap; max-width: 130px; overflow: hidden; text-overflow: ellipsis;
 }
 .wallet-btn:hover { background: rgba(170,68,255,.1); }
 .wallet-btn.connected { border-color: var(--green); color: var(--green); }
 .sound-btn {
   font-size: 18px; padding: 3px 8px; border: 2px solid #333;
   border-radius: 16px; background: transparent; cursor: pointer;
-  transition: .2s; line-height: 1;
+  transition: .2s; line-height: 1; flex-shrink: 0;
 }
 .sound-btn:hover { border-color: #555; }
 .coins-box {
   display: flex; align-items: center; gap: 5px;
   background: #1a0a0a; border: 2px solid var(--gold); border-radius: 20px; padding: 3px 12px;
+  flex-shrink: 0;
 }
 .coins-box img { width: 22px; height: 22px; }
 .coins-box span { font-weight: 900; font-size: 16px; color: var(--gold); min-width: 50px; text-align: right; }
@@ -66,7 +70,30 @@ body {
    LEVEL BAR
    ============================================ */
 .lvl-bar { width: 100%; max-width: 520px; height: 4px; background: #1a0a0a; }
-.lvl-fill { height: 100%; background: linear-gradient(90deg, var(--gold), var(--red)); transition: width .3s; width: 0; }
+.lvl-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold), var(--red));
+  transition: width .3s ease-out;
+  width: 0;
+  will-change: width;
+}
+
+/* ============================================
+   BOOST TIMER (YENİ)
+   ============================================ */
+.boost-timer {
+  display: none; width: 100%; max-width: 520px; padding: 4px 14px;
+  background: linear-gradient(90deg, #001a2a, #001020);
+  border-bottom: 1px solid var(--blue);
+  text-align: center; font-size: 13px; color: var(--blue);
+  font-weight: 700; letter-spacing: 1px;
+  animation: boostPulse 1s ease-in-out infinite alternate;
+}
+.boost-timer.show { display: block; }
+@keyframes boostPulse {
+  from { text-shadow: 0 0 5px rgba(68,136,255,.3); }
+  to   { text-shadow: 0 0 15px rgba(68,136,255,.6); }
+}
 
 /* ============================================
    STATS BAR
@@ -125,10 +152,15 @@ body {
 
 /* ---- Click Area ---- */
 .click-area {
-  cursor: pointer; position: relative; z-index: 2; transition: transform .05s;
+  cursor: pointer; position: relative; z-index: 2;
+  transition: transform .05s;
+  -webkit-touch-callout: none;
 }
 .click-area:active { transform: scale(.93); }
-.click-area img { width: 260px; height: 260px; object-fit: contain; pointer-events: none; }
+.click-area img {
+  width: 260px; height: 260px; object-fit: contain; pointer-events: none;
+  image-rendering: -webkit-optimize-contrast;
+}
 .lift-counter {
   font-family: 'Bangers', cursive; font-size: 22px; letter-spacing: 2px;
   color: #fff; margin-top: 6px;
@@ -143,6 +175,7 @@ body {
   font-family: 'Bangers', cursive; font-size: 26px;
   color: var(--gold); text-shadow: 2px 2px 0 #000;
   animation: popUp .7s ease-out forwards;
+  will-change: transform, opacity;
 }
 @keyframes popUp {
   0%   { opacity: 1; transform: translateY(0) scale(1); }
@@ -152,6 +185,7 @@ body {
   position: absolute; pointer-events: none; z-index: 9;
   width: 6px; height: 6px; border-radius: 50%;
   animation: particleFly .5s ease-out forwards;
+  will-change: transform, opacity;
 }
 @keyframes particleFly {
   0%   { opacity: 1; transform: translate(0,0) scale(1); }
@@ -243,6 +277,19 @@ body {
 .panel::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
 .panel.active { display: flex; }
 
+/* ---- Buy Mode Bar (YENİ) ---- */
+.buy-mode-bar {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 0; margin-bottom: 4px;
+}
+.buy-mode-btn {
+  font-family: 'Outfit', sans-serif; font-size: 11px; font-weight: 700;
+  padding: 4px 12px; border: 1px solid #333; border-radius: 12px;
+  background: transparent; color: #888; cursor: pointer; transition: .15s;
+}
+.buy-mode-btn:hover { border-color: #555; }
+.buy-mode-btn.active { border-color: var(--gold); color: var(--gold); background: #1a1500; }
+
 /* ---- Shop Items ---- */
 .shop-category {
   font-family: 'Bangers', cursive; font-size: 18px;
@@ -265,6 +312,8 @@ body {
 .shop-owned { font-size: 10px; color: var(--blue); margin-top: 1px; }
 .shop-cost { font-family: 'Bangers', cursive; font-size: 16px; color: var(--gold); white-space: nowrap; }
 .shop-cost.expensive { color: #FF4444; }
+/* YENİ: ROI göstergesi */
+.shop-roi { font-size: 9px; color: #555; margin-top: 1px; font-style: italic; }
 
 /* ---- Milestones ---- */
 .milestone-item {
@@ -279,6 +328,27 @@ body {
 .ms-reward { font-size: 12px; color: var(--gold); font-weight: 700; }
 .ms-progress { width: 100%; height: 5px; background: #333; border-radius: 3px; margin-top: 3px; overflow: hidden; }
 .ms-progress-fill { height: 100%; background: var(--green); border-radius: 3px; transition: width .3s; }
+
+/* ---- Daily Challenge (YENİ) ---- */
+.daily-challenge-box {
+  text-align: center; padding: 14px; margin-bottom: 8px;
+  background: linear-gradient(180deg, #0a1a0a, #050d05);
+  border: 2px solid var(--green); border-radius: 14px;
+}
+.daily-challenge-box h3 {
+  font-family: 'Bangers', cursive; font-size: 20px;
+  color: var(--green); margin-bottom: 6px;
+}
+.dc-name { font-weight: 700; font-size: 16px; color: var(--gold); }
+.dc-desc { font-size: 12px; color: #aaa; margin: 4px 0; }
+.dc-progress-text { font-size: 14px; color: var(--green); font-weight: 700; margin: 4px 0; }
+.dc-fill { background: var(--green) !important; }
+.dc-reward { font-size: 12px; color: var(--gold); margin-top: 6px; font-weight: 700; }
+.dc-complete {
+  font-family: 'Bangers', cursive; font-size: 22px;
+  color: var(--green); margin-top: 6px;
+  text-shadow: 0 0 10px rgba(0,255,102,.3);
+}
 
 /* ---- Lucky Spin ---- */
 .lucky-box {
@@ -372,6 +442,7 @@ body {
   padding: 8px 20px; border-radius: 10px; font-size: 14px;
   z-index: 200; animation: toastIn .3s ease-out;
   box-shadow: 0 4px 20px rgba(255,215,0,.3); white-space: nowrap;
+  max-width: 90vw; overflow: hidden; text-overflow: ellipsis;
 }
 @keyframes toastIn {
   from { opacity: 0; transform: translateX(-50%) translateY(-15px); }
@@ -396,6 +467,19 @@ body {
   .click-area img { width: 220px; height: 220px; }
   .lift-counter { font-size: 17px; }
   .tab { font-size: 10px; letter-spacing: 0.5px; }
+}
+
+/* Çok küçük ekranlar */
+@media (max-width: 360px) {
+  .hdr { padding: 4px 8px; }
+  .logo { font-size: 18px; letter-spacing: 1px; }
+  .wallet-btn { font-size: 10px; padding: 4px 8px; max-width: 90px; }
+  .coins-box { padding: 2px 8px; }
+  .coins-box span { font-size: 14px; min-width: 40px; }
+  .gym { min-height: 220px; }
+  .click-area img { width: 180px; height: 180px; }
+  .stats-bar { padding: 4px 8px; }
+  .stat-value { font-size: 13px; }
 }
 
 /* ============================================
@@ -493,3 +577,13 @@ body {
    ============================================ */
 .login-options { text-align: center; max-width: 280px; }
 .login-option { margin-bottom: 8px; }
+
+/* ============================================
+   REDUCE MOTION
+   ============================================ */
+@media (prefers-reduced-motion: reduce) {
+  .click-pop, .click-particle, .idle-pop, .bear-img, .combo-indicator, .boost-timer {
+    animation: none !important;
+  }
+  .lvl-fill, .bear-hp-fill, .ms-progress-fill { transition: none !important; }
+}

@@ -1,26 +1,26 @@
 /* ============================================
-   DUMB GYM TYCOON - App Initialization
+   DUMB GYM TYCOON - App Initialization (v4)
    Event listeners, game loop, startup
    ============================================ */
 
 (function () {
 
-  // ==================== LOAD SAVED GAME ====================
+  // ==================== OYUNU YÜKLE ====================
   Game.load();
   Game.calcStats();
   UI.updateStats();
   UI.renderShop();
 
-  // ==================== AUTO RECONNECT WALLET ====================
+  // ==================== WALLET AUTO RECONNECT ====================
   Wallet.autoReconnect();
 
-  // ==================== AUTH INIT ====================
+  // ==================== AUTH BAŞLAT ====================
   Auth.init();
 
-  // ==================== REGISTER ON LEADERBOARD ====================
+  // ==================== LEADERBOARD KAYIT ====================
   Leaderboard.submit();
 
-  // ==================== INIT AUDIO ON FIRST INTERACTION ====================
+  // ==================== SES - İLK ETKİLEŞİMDE BAŞLAT ====================
   function initAudio() {
     SFX.init();
     document.removeEventListener('click', initAudio);
@@ -29,38 +29,47 @@
   document.addEventListener('click', initAudio);
   document.addEventListener('touchstart', initAudio);
 
-  // ==================== EVENT LISTENERS ====================
+  // ==================== EVENT LİSTENER'LAR ====================
 
-  // Click / Tap to lift (prevent double-fire on mobile)
+  // BUG FIX: Mobilde çift tıklama engelleme - yalnızca touch OR click
+  let usingTouch = false;
   let lastClickTime = 0;
+
   function safeClick(e) {
     const now = Date.now();
-    if (now - lastClickTime < 50) return; // debounce 50ms
+    if (now - lastClickTime < 50) return; // 50ms debounce
     lastClickTime = now;
     UI.doClick(e);
   }
-  document.getElementById('clickArea').addEventListener('click', safeClick);
+
   document.getElementById('clickArea').addEventListener('touchstart', function (e) {
     e.preventDefault();
+    usingTouch = true;
     safeClick(e);
   }, { passive: false });
 
-  // Tab switching
+  document.getElementById('clickArea').addEventListener('click', function (e) {
+    // BUG FIX: Touch cihazlarda click event'ini yoksay
+    if (usingTouch) return;
+    safeClick(e);
+  });
+
+  // Tab geçişi
   document.querySelectorAll('.tab').forEach(tab => {
     tab.addEventListener('click', function () {
       UI.switchTab(this.dataset.tab);
     });
   });
 
-  // Keyboard: Space to click
+  // Klavye: Space tıklama
   document.addEventListener('keydown', function (e) {
-    if (e.code === 'Space') {
+    if (e.code === 'Space' && !e.repeat) { // BUG FIX: e.repeat kontrolü - basılı tutmayı engelle
       e.preventDefault();
       UI.doClick(e);
     }
   });
 
-  // ==================== GAME LOOP (250ms tick) ====================
+  // ==================== ANA OYUN DÖNGÜSÜ (250ms) ====================
   let lastTick = Date.now();
 
   function gameTick() {
@@ -68,20 +77,22 @@
     const dt = (now - lastTick) / 1000;
     lastTick = now;
 
-    // Idle income
+    // dt güvenlik kontrolü (tab değiştirme vb. uzun bekleme)
+    const safeDt = Math.min(dt, 2); // Maksimum 2 saniyelik tick
+
+    // Idle gelir
     if (Game.state.perSecond > 0) {
-      const earned = Math.floor(Game.state.perSecond * dt);
+      // BUG FIX: addCoins() kullan, dailyCoins takibi için
+      const earned = Math.floor(Game.state.perSecond * safeDt);
       if (earned > 0) {
-        Game.state.coins += earned;
-        Game.state.totalCoins += earned;
-        Game.state.sessionCoins += earned;
+        Game.addCoins(earned);
         Game.state.totalLifts += earned;
         UI.idleAccumulator += earned;
       }
     }
 
-    // Idle income visual
-    if (UI.idleAccumulator > 0 && Math.random() < 0.3) {
+    // Idle gelir görseli - performans: çok sık oluşturma
+    if (UI.idleAccumulator > 0 && Math.random() < 0.2) {
       UI.showIdlePop();
       UI.idleAccumulator = 0;
     }
@@ -91,33 +102,60 @@
     UI.updateStats();
   }
 
-  setInterval(gameTick, 250);
+  setInterval(gameTick, GAME_TICK_INTERVAL);
 
-  // ==================== AUTO-SAVE (15s) ====================
+  // ==================== OTOMATİK KAYIT (15sn) ====================
   setInterval(function () {
     Game.save();
-    Leaderboard.submit(); // Auto-submit score
-  }, 15000);
+    Leaderboard.submit();
+  }, AUTO_SAVE_INTERVAL);
 
-  // ==================== SHOP AUTO-REFRESH (2s) ====================
+  // ==================== SHOP OTOMATİK YENİLEME (3sn) ====================
+  // BUG FIX: 2sn'den 3sn'ye çıkarıldı - gereksiz DOM thrashing önlendi
   setInterval(function () {
     if (UI.currentTab === 'shop') UI.renderShop();
-  }, 2000);
+  }, 3000);
 
-  // ==================== BEAR ATTACK TIMER (12s) ====================
+  // ==================== BEAR ATTACK ZAMANLAYICISI ====================
   setInterval(function () {
     if (!UI.bear.active && UI.currentTab === 'gym' && Game.state.totalClicks > 15) {
-      if (Math.random() < 0.25) UI.startBearAttack();
+      if (Math.random() < BEAR_BASE_CHANCE) UI.startBearAttack();
     }
-  }, 12000);
+  }, BEAR_CHECK_INTERVAL);
+
+  // ==================== DAILY CHALLENGE REFRESH ====================
+  // Her dakika günlük challenge'ı kontrol et
+  setInterval(function () {
+    Game.initDailyChallenge();
+    Game.checkDailyChallenge();
+  }, 60000);
 
   // ==================== TELEGRAM MINI APP ====================
   if (window.Telegram?.WebApp) {
     window.Telegram.WebApp.ready();
     window.Telegram.WebApp.expand();
+    // Telegram tema renkleri
+    try {
+      const tg = window.Telegram.WebApp;
+      if (tg.themeParams) {
+        document.documentElement.style.setProperty('--tg-bg', tg.themeParams.bg_color || '');
+      }
+    } catch (e) {}
   }
 
-  console.log('%c🏋️ DUMB GYM TYCOON loaded!', 'color: #FFD700; font-size: 16px; font-weight: bold;');
+  // ==================== VİSİBİLİTY API - Tab gizlendiğinde kaydet ====================
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+      Game.save();
+    }
+  });
+
+  // ==================== SAYFA KAPANIRKEN KAYDET ====================
+  window.addEventListener('beforeunload', function () {
+    Game.save();
+  });
+
+  console.log('%c🏋️ DUMB GYM TYCOON v4 loaded!', 'color: #FFD700; font-size: 16px; font-weight: bold;');
   console.log('%c$DUMB on Solana | CA: ' + CA, 'color: #888; font-size: 11px;');
 
 })();

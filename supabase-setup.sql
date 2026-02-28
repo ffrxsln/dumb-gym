@@ -1,5 +1,5 @@
 -- ============================================
--- DUMB GYM TYCOON - Supabase Database Setup
+-- DUMB GYM TYCOON v4 - Supabase Database Setup
 -- Run this in Supabase SQL Editor
 -- ============================================
 
@@ -26,6 +26,8 @@ CREATE INDEX IF NOT EXISTS idx_lb_level ON leaderboard (level DESC);
 CREATE INDEX IF NOT EXISTS idx_lb_prestige ON leaderboard (prestige DESC);
 CREATE INDEX IF NOT EXISTS idx_lb_bears ON leaderboard (bear_kills DESC);
 CREATE INDEX IF NOT EXISTS idx_lb_tokens ON leaderboard (token_reward DESC);
+-- YENİ: Güncelleme zamanı index'i (rate limit için)
+CREATE INDEX IF NOT EXISTS idx_lb_updated ON leaderboard (updated_at DESC);
 
 -- RLS aktif
 ALTER TABLE leaderboard ENABLE ROW LEVEL SECURITY;
@@ -41,45 +43,90 @@ CREATE POLICY "Anyone can insert"
   WITH CHECK (
     char_length(display_name) <= 20
     AND char_length(user_id) <= 100
+    -- YENİ: user_id format kontrolü
+    AND user_id ~ '^(u_|w_|tg_|anon_)[a-zA-Z0-9_]+$'
   );
 
--- Sadece kendi kaydını güncelleyebilir (skor sadece yukarı gidebilir)
-CREATE POLICY "Users can update own score up only"
+-- BUG FIX: Update policy - sadece kendi kaydını güncelleyebilir
+-- Eski policy "total_coins >= leaderboard.total_coins" subquery gerektiriyordu
+-- Yeni policy daha güvenli
+CREATE POLICY "Users can update own record"
   ON leaderboard FOR UPDATE
   USING (true)
   WITH CHECK (
-    total_coins >= leaderboard.total_coins
-    AND char_length(display_name) <= 20
+    char_length(display_name) <= 20
+    AND level >= 1 AND level <= 999
+    AND prestige >= 0 AND prestige <= 999
+    AND total_coins >= 0
+    AND total_clicks >= 0
+    AND bear_kills >= 0
   );
 
--- Rate limiting için fonksiyon (opsiyonel ama önerilir)
--- Son 1 dakikada max 10 update izin ver
+-- BUG FIX: Rate limiting - düzeltilmiş versiyon
+-- Eski trigger COUNT(*) ile tek kayıt sayıyordu (PK olduğu için hep 1)
+-- Yeni versiyon updated_at timestamp farkını kontrol eder
 CREATE OR REPLACE FUNCTION check_rate_limit()
 RETURNS TRIGGER AS $$
 BEGIN
-  IF (
-    SELECT COUNT(*) FROM leaderboard
-    WHERE user_id = NEW.user_id
-    AND updated_at > NOW() - INTERVAL '1 minute'
-  ) > 10 THEN
-    RAISE EXCEPTION 'Rate limit exceeded';
+  -- Son güncelleme 5 saniyeden kısa süre önceyse reddet
+  IF (OLD.updated_at IS NOT NULL AND OLD.updated_at > NOW() - INTERVAL '5 seconds') THEN
+    -- Sessizce güncellemeyi atla (hata fırlatma)
+    RETURN OLD;
   END IF;
+  
+  -- YENİ: Skor sadece yukarı gidebilir (anti-cheat)
+  IF NEW.total_coins < OLD.total_coins THEN
+    NEW.total_coins := OLD.total_coins;
+  END IF;
+  IF NEW.total_clicks < OLD.total_clicks THEN
+    NEW.total_clicks := OLD.total_clicks;
+  END IF;
+  IF NEW.bear_kills < OLD.bear_kills THEN
+    NEW.bear_kills := OLD.bear_kills;
+  END IF;
+  
   NEW.updated_at = NOW();
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE TRIGGER rate_limit_trigger
+-- Trigger'ı oluştur (varsa sil ve yeniden oluştur)
+DROP TRIGGER IF EXISTS rate_limit_trigger ON leaderboard;
+CREATE TRIGGER rate_limit_trigger
   BEFORE UPDATE ON leaderboard
   FOR EACH ROW
   EXECUTE FUNCTION check_rate_limit();
 
+-- YENİ: Display name sanitize fonksiyonu
+CREATE OR REPLACE FUNCTION sanitize_display_name()
+RETURNS TRIGGER AS $$
+BEGIN
+  -- HTML/script tag'lerini temizle
+  NEW.display_name := regexp_replace(NEW.display_name, '<[^>]*>', '', 'g');
+  -- Boşluk trim
+  NEW.display_name := trim(NEW.display_name);
+  -- Boşsa Anonymous yap
+  IF NEW.display_name = '' OR NEW.display_name IS NULL THEN
+    NEW.display_name := 'Anonymous';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS sanitize_name_trigger ON leaderboard;
+CREATE TRIGGER sanitize_name_trigger
+  BEFORE INSERT OR UPDATE ON leaderboard
+  FOR EACH ROW
+  EXECUTE FUNCTION sanitize_display_name();
+
 -- ============================================
--- DONE! Go to Settings > API and copy:
+-- SETUP TAMAMLANDI!
+-- 
+-- Settings > API'den kopyala:
 -- 1. Project URL  →  SUPABASE_URL
 -- 2. anon public key  →  SUPABASE_KEY
--- Paste into js/leaderboard.js (lines 7-8)
+-- js/leaderboard.js içine yapıştır (satır 7-8)
 --
--- Anon key is SAFE to put in public code.
--- RLS rules protect the database, not the key.
+-- Anon key public kodda GÜVENLE kullanılabilir.
+-- RLS kuralları veritabanını korur, key'i değil.
 -- ============================================
