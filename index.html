@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <title>DUMB GYM TYCOON - $DUMB on Solana</title>
+  <link rel="icon" href="assets/coin.png">
+  <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Outfit:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- HEADER -->
+  <div class="hdr">
+    <div class="logo">DUMB GYM</div>
+    <button class="wallet-btn" id="walletBtn" onclick="Wallet.connect()">🔗 Connect</button>
+    <div class="coins-box">
+      <img src="assets/coin.png" alt="coin">
+      <span id="coinCount">0</span>
+    </div>
+  </div>
+
+  <!-- LEVEL BAR -->
+  <div class="lvl-bar"><div class="lvl-fill" id="lvlBar"></div></div>
+
+  <!-- STREAK BANNER -->
+  <div class="streak-banner" id="streakBanner">🔥 Day 3 Streak! 2x bonus active!</div>
+
+  <!-- STATS -->
+  <div class="stats-bar">
+    <div class="stat"><div class="stat-label">Per Click</div><div class="stat-value" id="statPC">+1</div></div>
+    <div class="stat"><div class="stat-label">Per Second</div><div class="stat-value green" id="statPS">+0/s</div></div>
+    <div class="stat"><div class="stat-label">Level</div><div class="stat-value blue" id="statLvl">1</div></div>
+    <div class="stat"><div class="stat-label">Prestige</div><div class="stat-value purple" id="statPre">⭐0</div></div>
+  </div>
+
+  <!-- MAIN GAME AREA -->
+  <div class="main">
+
+    <!-- GYM VIEW -->
+    <div class="gym" id="gymView">
+      <div class="click-area" id="clickArea">
+        <img id="dumbImg" src="assets/dumb_idle.png" alt="Mr. DUMB">
+      </div>
+      <div class="lift-counter">Total bags: <b id="totalLifts">0</b></div>
+      <div class="gym-floor"></div>
+
+      <!-- BEAR ATTACK OVERLAY -->
+      <div class="bear-attack" id="bearAttack">
+        <div class="bear-label" id="bearLabel">🐻 BEAR ATTACK!</div>
+        <img class="bear-img" id="bearImg" alt="Bear">
+        <div class="bear-hp"><div class="bear-hp-fill" id="bearHpFill" style="width:100%"></div></div>
+        <div class="bear-timer" id="bearTimer">10s</div>
+        <div class="bear-reward" id="bearReward">Reward: 100 coins</div>
+      </div>
+    </div>
+
+    <!-- SHOP PANEL -->
+    <div class="panel" id="shopPanel"></div>
+
+    <!-- MILESTONES PANEL -->
+    <div class="panel" id="msPanel"></div>
+
+    <!-- PRESTIGE PANEL -->
+    <div class="panel" id="prePanel"></div>
+  </div>
+
+  <!-- TAB BAR -->
+  <div class="tabs">
+    <div class="tab active" data-tab="gym">🏋️ Gym</div>
+    <div class="tab" data-tab="shop">🛒 Shop<span class="tab-notif" id="shopNotif"></span></div>
+    <div class="tab" data-tab="ms">🏆 Goals</div>
+    <div class="tab" data-tab="pre">⭐ More</div>
+  </div>
+
+  <div class="ca-text">$DUMB on Solana | CA: 8DodKZzn1PnbmiJTKhavVxqpsTMiepHSuqwTKnDSpump</div>
+
+  <!-- MODALS -->
+  <div class="modal" id="offlineModal">
+    <h2>Welcome Back! 🏋️</h2>
+    <div class="modal-sub" id="offlineDur">You were away for 2h 30m</div>
+    <div class="modal-big" id="offlineAmt">+12,500</div>
+    <div class="modal-desc">coins earned while away</div>
+    <button class="btn-primary" onclick="UI.closeOffline()">COLLECT 💰</button>
+  </div>
+
+  <div class="modal" id="prestigeConfirm">
+    <h2 style="color:var(--purple)">⭐ PRESTIGE? ⭐</h2>
+    <div class="modal-desc" style="color:#ff8888;max-width:300px">
+      All coins, upgrades, and levels will reset!<br><br>
+      You'll get a permanent multiplier boost.
+    </div>
+    <div class="modal-buttons">
+      <button class="btn-prestige" onclick="Game.doPrestige()">YES, PRESTIGE!</button>
+      <button class="btn-cancel" onclick="UI.closePrestige()">CANCEL</button>
+    </div>
+  </div>
+
+  <div class="modal" id="walletModal">
+    <h2>🔗 Wallet Connection</h2>
+    <div class="modal-desc" id="walletMsg">Connecting...</div>
+    <button class="btn-primary" onclick="UI.closeWallet()">OK</button>
+  </div>
+
+  <!-- SCRIPTS -->
+  <script src="js/data.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/wallet.js"></script>
+  <script src="js/app.js"></script>
+
+</body>
+</html>
