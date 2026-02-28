@@ -29,6 +29,8 @@ const Game = {
     lastLogin: 0,
     luckySpinTime: 0,
     walletAddr: '',
+    userId: '',
+    userName: '',
     boostUntil: 0,
     comboCount: 0,
     comboTime: 0,

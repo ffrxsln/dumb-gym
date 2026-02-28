@@ -14,6 +14,9 @@
   // ==================== AUTO RECONNECT WALLET ====================
   Wallet.autoReconnect();
 
+  // ==================== AUTH INIT ====================
+  Auth.init();
+
   // ==================== REGISTER ON LEADERBOARD ====================
   Leaderboard.submit();
 
