@@ -7,7 +7,7 @@ const Leaderboard = {
 
   // ⬇️ SUPABASE CONFIG
   SUPABASE_URL: 'https://ncvxriggroxkpsovpxxk.supabase.co',
-  SUPABASE_KEY: 'sb_publishable_SWFqmw5dLAbINWzn4Mb97Q_bYnC-xfk',
+  SUPABASE_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5jdnhyaWdncm94a3Bzb3ZweHhrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzMDMyNDcsImV4cCI6MjA4Nzg3OTI0N30.eM-WhHnFGF5YD4ZB133JgEjA2tL_HR6MGzki7H1ZbhU',
 
   data: [],
   lastSync: 0,
