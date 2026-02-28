@@ -16,11 +16,18 @@
 
   // ==================== EVENT LISTENERS ====================
 
-  // Click / Tap to lift
-  document.getElementById('clickArea').addEventListener('click', UI.doClick);
+  // Click / Tap to lift (prevent double-fire on mobile)
+  let lastClickTime = 0;
+  function safeClick(e) {
+    const now = Date.now();
+    if (now - lastClickTime < 50) return; // debounce 50ms
+    lastClickTime = now;
+    UI.doClick(e);
+  }
+  document.getElementById('clickArea').addEventListener('click', safeClick);
   document.getElementById('clickArea').addEventListener('touchstart', function (e) {
     e.preventDefault();
-    UI.doClick(e);
+    safeClick(e);
   }, { passive: false });
 
   // Tab switching
@@ -72,7 +79,10 @@
   setInterval(gameTick, 250);
 
   // ==================== AUTO-SAVE (15s) ====================
-  setInterval(function () { Game.save(); }, 15000);
+  setInterval(function () {
+    Game.save();
+    Leaderboard.submit(); // Auto-submit score
+  }, 15000);
 
   // ==================== SHOP AUTO-REFRESH (2s) ====================
   setInterval(function () {

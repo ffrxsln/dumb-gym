@@ -29,6 +29,9 @@ const Game = {
     lastLogin: 0,
     luckySpinTime: 0,
     walletAddr: '',
+    boostUntil: 0,
+    comboCount: 0,
+    comboTime: 0,
     saveVersion: SAVE_VERSION,
   },
 
@@ -61,6 +64,13 @@ const Game = {
     const streakMult = streak >= 7 ? 1.5 : streak >= 3 ? 1.2 : 1;
     mult *= streakMult;
 
+    // Lucky spin boost
+    if (this.state.boostUntil && Date.now() < this.state.boostUntil) {
+      mult *= 2;
+    } else {
+      this.state.boostUntil = 0;
+    }
+
     this.state.clickPower = Math.floor(cp * mult);
     this.state.perSecond = Math.floor(ps * mult);
   },
@@ -77,10 +87,18 @@ const Game = {
   checkLevel() {
     const needed = () => Math.floor(80 * Math.pow(1.35, this.state.level - 1) * this.state.level);
     let safety = 0;
+    const startLevel = this.state.level;
     while (this.state.sessionCoins >= needed() && safety < 100) {
       this.state.level++;
       safety++;
-      UI.toast('⬆️ Level ' + this.state.level + '!');
+    }
+    // Single toast for multi-level jumps
+    if (this.state.level > startLevel) {
+      if (this.state.level - startLevel > 1) {
+        UI.toast('⬆️ Level ' + startLevel + ' → ' + this.state.level + '!');
+      } else {
+        UI.toast('⬆️ Level ' + this.state.level + '!');
+      }
     }
   },
 
@@ -151,12 +169,12 @@ const Game = {
     const val = pick.calc();
 
     if (val === 'boost') {
-      const origCalc = this.calcStats.bind(this);
-      this.state.clickPower *= 2;
+      this.state.boostUntil = Date.now() + 30000;
+      this.calcStats();
       UI.updateStats();
-      UI.toast('⚡ 2x Click Power for 30s!');
-      setTimeout(() => { origCalc(); UI.updateStats(); }, 30000);
-      document.getElementById('luckyResult').textContent = '⚡ 2x click power for 30s!';
+      UI.toast('⚡ 2x ALL Power for 30s!');
+      setTimeout(() => { this.calcStats(); UI.updateStats(); }, 30000);
+      document.getElementById('luckyResult').textContent = '⚡ 2x all power for 30s!';
     } else {
       this.addCoins(val);
       const text = pick.text.replace('{x}', formatNum(val));
@@ -254,6 +272,8 @@ const Game = {
       }
 
       this.checkStreak();
+      this.checkLevel(); // Fix: check level after offline earnings
+      this.checkMilestones();
 
     } catch (e) { /* corrupt data */ }
   },

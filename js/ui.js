@@ -30,6 +30,16 @@ const UI = {
     document.getElementById('statPre').textContent = '⭐' + s.prestige;
     document.getElementById('totalLifts').textContent = formatNum(s.totalLifts);
 
+    // Combo indicator
+    const comboEl = document.getElementById('comboIndicator');
+    if (s.comboCount >= 10 && Date.now() - s.comboTime < 600) {
+      const mult = s.comboCount >= 30 ? 5 : s.comboCount >= 20 ? 3 : 2;
+      comboEl.textContent = '🔥 COMBO x' + mult + ' (' + s.comboCount + ' hits)';
+      comboEl.classList.add('show');
+    } else {
+      comboEl.classList.remove('show');
+    }
+
     // Level progress bar
     const nxt = Math.floor(80 * Math.pow(1.35, s.level - 1) * s.level);
     const prev = s.level > 1 ? Math.floor(80 * Math.pow(1.35, s.level - 2) * (s.level - 1)) : 0;
@@ -50,9 +60,22 @@ const UI = {
   // ==================== CLICK HANDLER ====================
   doClick(e) {
     const s = Game.state;
+    
+    // Combo system
+    const now = Date.now();
+    if (now - s.comboTime < 400) {
+      s.comboCount = Math.min(s.comboCount + 1, 50);
+    } else {
+      s.comboCount = 1;
+    }
+    s.comboTime = now;
+    
+    const comboMult = s.comboCount >= 30 ? 5 : s.comboCount >= 20 ? 3 : s.comboCount >= 10 ? 2 : 1;
+    const earned = s.clickPower * comboMult;
+    
     s.totalClicks++;
     s.totalLifts++;
-    Game.addCoins(s.clickPower);
+    Game.addCoins(earned);
 
     // Mr. DUMB animation
     UI.dumbFrame = (UI.dumbFrame + 1) % 2;
@@ -75,8 +98,13 @@ const UI = {
       cy = rect.height / 3;
     }
 
-    UI.spawnClickPop(cx, cy, '+' + formatNum(s.clickPower));
-    UI.spawnParticles(cx, cy, 4);
+    const label = comboMult > 1 ? '+' + formatNum(earned) + ' x' + comboMult : '+' + formatNum(earned);
+    UI.spawnClickPop(cx, cy, label);
+    UI.spawnParticles(cx, cy, Math.min(4 + Math.floor(s.comboCount / 5), 10));
+    
+    // Haptic feedback
+    if (navigator.vibrate) navigator.vibrate(15);
+    
     Game.checkLevel();
     UI.updateStats();
   },
@@ -324,10 +352,25 @@ const UI = {
     document.getElementById('gymView').style.display = tab === 'gym' ? 'flex' : 'none';
     document.getElementById('shopPanel').classList.toggle('active', tab === 'shop');
     document.getElementById('msPanel').classList.toggle('active', tab === 'ms');
+    document.getElementById('lbPanel').classList.toggle('active', tab === 'lb');
     document.getElementById('prePanel').classList.toggle('active', tab === 'pre');
+
+    // Pause/resume bear timer on tab switch
+    if (tab !== 'gym' && this.bear.active) {
+      clearInterval(this.bear.interval);
+      this.bear._paused = true;
+    } else if (tab === 'gym' && this.bear._paused && this.bear.active) {
+      this.bear._paused = false;
+      this.bear.interval = setInterval(() => {
+        this.bear.timer--;
+        document.getElementById('bearTimer').textContent = this.bear.timer + 's left';
+        if (this.bear.timer <= 0) this.bearEscape();
+      }, 1000);
+    }
 
     if (tab === 'shop') this.renderShop();
     if (tab === 'ms')   this.renderMilestones();
+    if (tab === 'lb')   Leaderboard.render();
     if (tab === 'pre')  this.renderPrestige();
   },
 
