@@ -14,6 +14,7 @@
   <div class="hdr">
     <div class="logo">DUMB GYM</div>
     <button class="wallet-btn" id="walletBtn" onclick="Wallet.connect()">🔗 Connect</button>
+    <button class="sound-btn" id="soundBtn" onclick="SFX.init();const on=SFX.toggle();this.textContent=on?'🔊':'🔇'">🔊</button>
     <div class="coins-box">
       <img src="assets/coin.png" alt="coin">
       <span id="coinCount">0</span>
@@ -88,7 +89,7 @@
     <div class="modal-sub" id="offlineDur">You were away for 2h 30m</div>
     <div class="modal-big" id="offlineAmt">+12,500</div>
     <div class="modal-desc">coins earned while away</div>
-    <button class="btn-primary" onclick="UI.closeOffline()">COLLECT 💰</button>
+    <button class="btn-primary" onclick="SFX.init();SFX.coin();UI.closeOffline()">COLLECT 💰</button>
   </div>
 
   <div class="modal" id="prestigeConfirm">
@@ -110,6 +111,7 @@
   </div>
 
   <!-- SCRIPTS -->
+  <script src="js/sfx.js"></script>
   <script src="js/data.js"></script>
   <script src="js/game.js"></script>
   <script src="js/ui.js"></script>

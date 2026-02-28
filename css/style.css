@@ -49,6 +49,12 @@ body {
 }
 .wallet-btn:hover { background: rgba(170,68,255,.1); }
 .wallet-btn.connected { border-color: var(--green); color: var(--green); }
+.sound-btn {
+  font-size: 18px; padding: 3px 8px; border: 2px solid #333;
+  border-radius: 16px; background: transparent; cursor: pointer;
+  transition: .2s; line-height: 1;
+}
+.sound-btn:hover { border-color: #555; }
 .coins-box {
   display: flex; align-items: center; gap: 5px;
   background: #1a0a0a; border: 2px solid var(--gold); border-radius: 20px; padding: 3px 12px;

@@ -102,6 +102,10 @@ const UI = {
     UI.spawnClickPop(cx, cy, label);
     UI.spawnParticles(cx, cy, Math.min(4 + Math.floor(s.comboCount / 5), 10));
     
+    // Sound
+    if (s.comboCount >= 10) SFX.clickCombo(s.comboCount);
+    else SFX.click();
+    
     // Haptic feedback
     if (navigator.vibrate) navigator.vibrate(15);
     
@@ -179,6 +183,7 @@ const UI = {
     document.getElementById('bearReward').textContent = 'Reward: ' + formatNum(rewards[this.bear.type]) + ' coins';
 
     document.getElementById('bearImg').onclick = () => UI.hitBear();
+    SFX.bearAttack();
 
     clearInterval(this.bear.interval);
     this.bear.interval = setInterval(() => {
@@ -190,6 +195,7 @@ const UI = {
 
   hitBear() {
     if (!this.bear.active) return;
+    SFX.bearHit();
 
     const dmg = Math.max(1, Math.ceil(Math.sqrt(Game.state.clickPower)));
     this.bear.hp -= dmg;
@@ -213,6 +219,7 @@ const UI = {
       Game.state.bearKills++;
 
       this.toast('🐻 Defeated! +' + formatNum(reward));
+      SFX.bearKill();
       setTimeout(() => { document.getElementById('bearAttack').classList.remove('active'); }, 800);
       this.updateStats();
     }
@@ -223,6 +230,7 @@ const UI = {
     clearInterval(this.bear.interval);
     document.getElementById('bearAttack').classList.remove('active');
     this.toast('🐻 Bear escaped!');
+    SFX.bearEscape();
   },
 
   // ==================== SHOP ====================

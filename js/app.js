@@ -14,6 +14,18 @@
   // ==================== AUTO RECONNECT WALLET ====================
   Wallet.autoReconnect();
 
+  // ==================== REGISTER ON LEADERBOARD ====================
+  Leaderboard.submit();
+
+  // ==================== INIT AUDIO ON FIRST INTERACTION ====================
+  function initAudio() {
+    SFX.init();
+    document.removeEventListener('click', initAudio);
+    document.removeEventListener('touchstart', initAudio);
+  }
+  document.addEventListener('click', initAudio);
+  document.addEventListener('touchstart', initAudio);
+
   // ==================== EVENT LISTENERS ====================
 
   // Click / Tap to lift (prevent double-fire on mobile)

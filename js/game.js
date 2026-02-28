@@ -94,6 +94,7 @@ const Game = {
     }
     // Single toast for multi-level jumps
     if (this.state.level > startLevel) {
+      SFX.levelUp();
       if (this.state.level - startLevel > 1) {
         UI.toast('⬆️ Level ' + startLevel + ' → ' + this.state.level + '!');
       } else {
@@ -113,6 +114,7 @@ const Game = {
     this.state.coins -= cost;
     this.state.upgrades[u.id] = owned + 1;
     this.calcStats();
+    SFX.buy();
     UI.renderShop();
     UI.updateStats();
     this.save();
@@ -136,6 +138,7 @@ const Game = {
     this.state.upgrades = {};
 
     this.calcStats();
+    SFX.prestige();
     UI.toast('⭐ PRESTIGE ' + this.state.prestige + '! x' + this.state.prestigeMult.toFixed(1));
     UI.switchTab('gym');
     UI.updateStats();
@@ -147,6 +150,7 @@ const Game = {
     MILESTONES.forEach(m => {
       if (!this.state.milestones[m.id] && m.current() >= m.target) {
         this.state.milestones[m.id] = true;
+        SFX.milestone();
         if (m.reward > 0) {
           this.addCoins(m.reward);
           UI.toast('🏆 ' + m.name + '! +' + formatNum(m.reward));
@@ -161,6 +165,7 @@ const Game = {
   luckySpin() {
     if (Date.now() - this.state.luckySpinTime < 300000) return;
     this.state.luckySpinTime = Date.now();
+    SFX.spin();
 
     // Build weighted pool
     const pool = [];
@@ -173,12 +178,14 @@ const Game = {
       this.calcStats();
       UI.updateStats();
       UI.toast('⚡ 2x ALL Power for 30s!');
+      setTimeout(() => { SFX.spinWin(); }, 500);
       setTimeout(() => { this.calcStats(); UI.updateStats(); }, 30000);
       document.getElementById('luckyResult').textContent = '⚡ 2x all power for 30s!';
     } else {
       this.addCoins(val);
       const text = pick.text.replace('{x}', formatNum(val));
       document.getElementById('luckyResult').textContent = text;
+      setTimeout(() => { SFX.spinWin(); }, 500);
       UI.toast(text);
     }
 
@@ -217,6 +224,7 @@ const Game = {
       // Daily reward
       const reward = this.state.clickPower * 50 * this.state.streak;
       this.addCoins(reward);
+      SFX.daily();
       UI.toast('📅 Daily bonus! +' + formatNum(reward));
       this.save();
     }

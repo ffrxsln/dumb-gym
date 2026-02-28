@@ -177,11 +177,11 @@ const Leaderboard = {
       html += '<div class="lb-myrank">Your Rank: #' + myRank + ' of ' + sorted.length + '</div>';
     }
 
-    // Connect wallet CTA
+    // Connect wallet CTA (optional, not required)
     if (!Game.state.walletAddr) {
       html += '<div class="lb-cta">';
-      html += '<div style="font-size:13px;color:#aaa;margin-bottom:8px">🔗 Connect wallet to claim your spot!</div>';
-      html += '<button class="lb-connect-btn" onclick="Wallet.connect()">Connect Wallet</button>';
+      html += '<div style="font-size:12px;color:#888;margin-bottom:6px">🔗 Connect wallet to show your address on the board</div>';
+      html += '<button class="lb-connect-btn" onclick="Wallet.connect()">Connect Wallet (Optional)</button>';
       html += '</div>';
     }
 

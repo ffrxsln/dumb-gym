@@ -1,6 +1,6 @@
 /* ============================================
    DUMB GYM TYCOON - Wallet Integration
-   Phantom / Solana wallet connection
+   Phantom auto-connect + manual address input
    ============================================ */
 
 const Wallet = {
@@ -12,69 +12,87 @@ const Wallet = {
 
   /* ---- Connect ---- */
   connect() {
-    // file:// protocol check
-    if (window.location.protocol === 'file:') {
-      const msg = document.getElementById('walletMsg');
-      msg.innerHTML =
-        '⚠️ Wallet requires a web server!<br><br>' +
-        'Phantom can\'t connect on local files.<br><br>' +
-        '<b>Options:</b><br>' +
-        '• Host on GitHub Pages<br>' +
-        '• Host on Vercel / Netlify<br>' +
-        '• Local: <code style="color:var(--gold)">python3 -m http.server 8000</code>';
-      document.getElementById('walletModal').classList.add('show');
-      return;
-    }
-
     const provider = this.getProvider();
 
+    // Phantom tarayıcıda açıksa → otomatik bağla
     if (provider?.isPhantom) {
       provider.connect()
         .then(resp => {
           Game.state.walletAddr = resp.publicKey.toString();
           this._updateButton();
+          SFX.notify();
           UI.toast('✅ Wallet connected!');
           Game.save();
+          Leaderboard.submit();
         })
         .catch(err => {
           if (err.code === 4001) UI.toast('❌ Connection rejected');
-          else UI.toast('❌ Connection failed');
+          else this._showManualInput();
         });
+      return;
+    }
 
-    } else if (window.Telegram?.WebApp) {
-      UI.toast('📱 Telegram wallet coming soon!');
+    // Phantom yoksa → manual wallet address girişi
+    this._showManualInput();
+  },
 
+  /* ---- Manual Wallet Input Modal ---- */
+  _showManualInput() {
+    const msg = document.getElementById('walletMsg');
+    msg.innerHTML =
+      '<div style="text-align:center">' +
+      '<div style="font-size:14px;color:#aaa;margin-bottom:12px">Enter your Solana wallet address:</div>' +
+      '<input type="text" id="walletInput" placeholder="Solana address (e.g. AbC4...)" ' +
+      'style="width:100%;padding:10px;border:2px solid var(--purple);border-radius:8px;' +
+      'background:#1a0a0a;color:var(--gold);font-size:14px;text-align:center;' +
+      'font-family:monospace;outline:none" maxlength="50" autocomplete="off">' +
+      '<div style="font-size:10px;color:#555;margin-top:6px">Only used for leaderboard display</div>' +
+      '<button onclick="Wallet._submitManual()" style="margin-top:12px;font-family:Bangers,cursive;' +
+      'font-size:18px;padding:8px 30px;border:2px solid var(--purple);' +
+      'background:linear-gradient(180deg,#6622AA,#441177);color:#fff;cursor:pointer;border-radius:8px">CONNECT</button>' +
+      '</div>';
+    document.getElementById('walletModal').classList.add('show');
+
+    setTimeout(() => {
+      const input = document.getElementById('walletInput');
+      if (input && Game.state.walletAddr) input.value = Game.state.walletAddr;
+    }, 100);
+  },
+
+  /* ---- Submit Manual Address ---- */
+  _submitManual() {
+    const input = document.getElementById('walletInput');
+    if (!input) return;
+    const addr = input.value.trim();
+
+    if (addr.length >= 32 && addr.length <= 44 && /^[1-9A-HJ-NP-Za-km-z]+$/.test(addr)) {
+      Game.state.walletAddr = addr;
+      this._updateButton();
+      SFX.notify();
+      UI.toast('✅ Wallet connected!');
+      Game.save();
+      Leaderboard.submit();
+      document.getElementById('walletModal').classList.remove('show');
     } else {
-      const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
-      if (isMobile) {
-        const url = encodeURIComponent(window.location.href);
-        window.location.href = 'https://phantom.app/ul/browse/' + url + '?ref=' + url;
-      } else {
-        const msg = document.getElementById('walletMsg');
-        msg.innerHTML =
-          'Phantom wallet not detected!<br><br>' +
-          '1. Install from <a href="https://phantom.app" target="_blank" style="color:var(--gold)">phantom.app</a><br>' +
-          '2. Refresh this page<br>' +
-          '3. Click Connect again';
-        document.getElementById('walletModal').classList.add('show');
-      }
+      UI.toast('❌ Invalid Solana address');
+      input.style.borderColor = '#FF4444';
+      setTimeout(() => { input.style.borderColor = 'var(--purple)'; }, 1500);
     }
   },
 
   /* ---- Auto Reconnect ---- */
   autoReconnect() {
-    if (!Game.state.walletAddr) return;
-    if (window.location.protocol === 'file:') return;
+    if (Game.state.walletAddr) this._updateButton();
 
     const provider = this.getProvider();
-    if (!provider?.isPhantom) return;
-
-    provider.connect({ onlyIfTrusted: true })
-      .then(resp => {
-        Game.state.walletAddr = resp.publicKey.toString();
-        this._updateButton();
-      })
-      .catch(() => { /* user hasn't trusted yet */ });
+    if (provider?.isPhantom && Game.state.walletAddr) {
+      provider.connect({ onlyIfTrusted: true })
+        .then(resp => {
+          Game.state.walletAddr = resp.publicKey.toString();
+          this._updateButton();
+        })
+        .catch(() => {});
+    }
   },
 
   /* ---- Update Button UI ---- */
