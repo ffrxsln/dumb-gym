@@ -17,8 +17,10 @@
   // ==================== AUTH BAŞLAT ====================
   Auth.init();
 
-  // ==================== LEADERBOARD KAYIT ====================
-  Leaderboard.submit();
+  // ==================== LEADERBOARD BAĞLANTI TESTİ + KAYIT ====================
+  Leaderboard.testConnection().then(() => {
+    Leaderboard.submit();
+  });
 
   // ==================== SES - İLK ETKİLEŞİMDE BAŞLAT ====================
   function initAudio() {
