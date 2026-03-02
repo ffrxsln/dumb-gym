@@ -584,15 +584,16 @@ body {
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 6px 0;
+    padding: 8px 0;
     margin-bottom: 4px;
+    flex-wrap: wrap;
 }
 
 .buy-mode-btn {
     font-family: 'Outfit', sans-serif;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 700;
-    padding: 4px 12px;
+    padding: 5px 14px;
     border: 1px solid #333;
     border-radius: 12px;
     background: transparent;
@@ -611,6 +612,13 @@ body {
     background: #1a1500;
 }
 
+.shop-income-summary {
+    margin-left: auto;
+    font-size: 10px;
+    font-weight: 700;
+    color: #66AA88;
+    white-space: nowrap;
+}
 
 /* ---- Shop Items ---- */
 
@@ -663,12 +671,19 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;
 }
 
 .shop-icon img {
     width: 40px;
     height: 40px;
     object-fit: contain;
+}
+
+.shop-info {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .shop-name {
@@ -683,10 +698,66 @@ body {
     margin-top: 1px;
 }
 
+.shop-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 2px;
+}
+
 .shop-owned {
     font-size: 10px;
     color: var(--blue);
-    margin-top: 1px;
+    font-weight: 600;
+}
+
+.shop-effect {
+    font-size: 9px;
+    color: #66AA88;
+    font-weight: 600;
+}
+
+.shop-roi-tag {
+    font-size: 9px;
+    color: #887744;
+    font-style: italic;
+}
+
+/* Progress bar */
+.shop-progress {
+    height: 3px;
+    background: #1a1a1a;
+    border-radius: 2px;
+    margin-top: 4px;
+    overflow: hidden;
+}
+
+.shop-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #2a4a2a, #44AA44);
+    border-radius: 2px;
+    transition: width .3s;
+}
+
+.shop-item.maxed .shop-progress-fill {
+    background: linear-gradient(90deg, #3a3a1a, var(--gold));
+}
+
+/* Cost alanı — sağ taraf */
+.shop-cost-area {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    flex-shrink: 0;
+    min-width: 55px;
+    gap: 2px;
+}
+
+.shop-cost-count {
+    font-size: 10px;
+    color: #88AACC;
+    font-weight: 700;
 }
 
 .shop-cost {
@@ -700,9 +771,14 @@ body {
     color: #FF4444;
 }
 
+.shop-cost-maxed {
+    font-family: 'Bangers', cursive;
+    font-size: 16px;
+    color: #44AA44;
+    letter-spacing: 2px;
+}
 
-/* YENİ: ROI göstergesi */
-
+/* ROI eski class (geriye uyumluluk) */
 .shop-roi {
     font-size: 9px;
     color: #555;
@@ -1409,4 +1485,162 @@ body {
     .ms-progress-fill {
         transition: none !important;
     }
+}
+/* ============================================
+   SKIN SELECTION SYSTEM
+   ============================================ */
+
+/* Gym'deki skin değiştir butonu */
+.skin-change-btn {
+  display: block; margin: 6px auto 0; padding: 5px 16px;
+  font-family: 'Outfit', sans-serif; font-size: 11px; font-weight: 700;
+  background: linear-gradient(180deg, #2a1a3a, #1a0a2a); color: #AA88DD;
+  border: 1px solid #553388; border-radius: 15px; cursor: pointer;
+  transition: .15s; letter-spacing: 0.5px;
+}
+.skin-change-btn:hover { border-color: #8866BB; color: #CCAAFF; }
+
+/* Skin Modal — tam ekran overlay */
+.skin-modal {
+  display: none; position: fixed; inset: 0; z-index: 9999;
+  background: rgba(0,0,0,.95);
+  overflow-y: auto; -webkit-overflow-scrolling: touch;
+}
+.skin-modal.show { display: block; }
+
+.skin-modal-inner {
+  max-width: 480px; margin: 0 auto; padding: 16px 12px 100px;
+}
+
+.skin-modal-header {
+  text-align: center; margin-bottom: 16px; position: relative;
+}
+.skin-modal-title {
+  font-family: 'Bangers', cursive; font-size: 32px;
+  color: var(--gold); text-shadow: 2px 2px 0 #000, 0 0 20px rgba(255,215,0,.3);
+  letter-spacing: 3px; margin: 0;
+}
+.skin-modal-subtitle {
+  font-family: 'Bangers', cursive; font-size: 16px;
+  color: #88BBDD; letter-spacing: 2px; margin-top: 4px;
+}
+.skin-close-btn {
+  position: absolute; top: 0; right: 0;
+  width: 36px; height: 36px; border-radius: 50%;
+  background: #1a0a0a; border: 1px solid #333; color: #888;
+  font-size: 18px; cursor: pointer; transition: .15s;
+}
+.skin-close-btn:hover { border-color: #FF4444; color: #FF4444; }
+
+/* Skin Grid — 2 kolon */
+.skin-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+/* Skin Kart */
+.skin-card {
+  border: 2px solid #333; border-radius: 12px;
+  padding: 10px 8px; text-align: center;
+  transition: .2s; position: relative; overflow: hidden;
+}
+.skin-card.skin-selected {
+  box-shadow: 0 0 20px rgba(255,215,0,.2);
+}
+.skin-card.skin-locked {
+  opacity: 0.85;
+}
+
+/* Rarity etiketi */
+.skin-rarity {
+  font-family: 'Outfit', sans-serif; font-size: 9px; font-weight: 900;
+  letter-spacing: 2px; margin-bottom: 6px;
+}
+
+/* Karakter preview */
+.skin-preview {
+  width: 100%; height: 110px;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 6px;
+}
+.skin-preview img {
+  max-height: 100px; max-width: 100%; object-fit: contain;
+}
+
+/* Kilitli karakter silüet efekti */
+.skin-silhouette img {
+  filter: brightness(0.3) saturate(0);
+  max-height: 100px; max-width: 100%; object-fit: contain;
+}
+
+/* Karakter ismi */
+.skin-name {
+  font-family: 'Bangers', cursive; font-size: 14px;
+  color: #fff; letter-spacing: 1px; margin-bottom: 6px;
+  line-height: 1.1;
+}
+
+/* Stat barları */
+.skin-stats {
+  margin-bottom: 6px;
+}
+.skin-stat {
+  display: flex; align-items: center; gap: 4px;
+  margin-bottom: 3px;
+}
+.skin-stat-label {
+  font-family: 'Outfit', sans-serif; font-size: 9px; font-weight: 700;
+  color: #aaa; width: 62px; text-align: left; flex-shrink: 0;
+}
+.skin-stat-bar {
+  flex: 1; height: 6px; background: #1a1a2a;
+  border-radius: 3px; overflow: hidden;
+}
+.skin-stat-fill {
+  height: 100%; border-radius: 3px;
+  transition: width .3s;
+}
+
+/* Bonus etiketi */
+.skin-bonus {
+  font-size: 10px; color: #66DDAA; font-weight: 700;
+  margin-bottom: 6px;
+}
+
+/* Butonlar */
+.skin-btn {
+  display: block; width: 100%; padding: 6px 0;
+  font-family: 'Bangers', cursive; font-size: 14px;
+  border-radius: 6px; cursor: pointer; transition: .15s;
+  letter-spacing: 1px; border: 2px solid;
+}
+.skin-btn-active {
+  background: linear-gradient(180deg, #2a3a1a, #1a2a0a);
+  border-color: #44AA44; color: #66CC66;
+  cursor: default;
+}
+.skin-btn-select {
+  background: linear-gradient(180deg, #2a2a3a, #1a1a2a);
+  border-color: #4488CC; color: #88BBFF;
+}
+.skin-btn-select:hover {
+  border-color: #66AAEE; color: #AACCFF;
+  box-shadow: 0 0 10px rgba(68,136,204,.3);
+}
+.skin-btn-buy {
+  background: linear-gradient(180deg, #3a2a0a, #2a1a00);
+  border-color: #F59E0B; color: #FFD700;
+}
+.skin-btn-buy:hover {
+  border-color: #FFD700;
+  box-shadow: 0 0 10px rgba(255,215,0,.3);
+}
+
+/* Mobil responsive */
+@media (max-width: 340px) {
+  .skin-grid { gap: 6px; }
+  .skin-card { padding: 8px 6px; }
+  .skin-name { font-size: 12px; }
+  .skin-preview { height: 90px; }
+  .skin-preview img, .skin-silhouette img { max-height: 80px; }
 }

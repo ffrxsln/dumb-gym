@@ -94,19 +94,25 @@ const UI = {
     }
     
     const comboMult = s.comboCount >= 30 ? 5 : s.comboCount >= 20 ? 3 : s.comboCount >= 10 ? 2 : 1;
-    const earned = s.clickPower * comboMult;
+    let earned = s.clickPower * comboMult;
+    // Skin combo bonus
+    if (typeof SkinSystem !== 'undefined') {
+      const bonus = SkinSystem.getBonus();
+      if (bonus.comboMult && comboMult > 1) earned = Math.floor(earned * bonus.comboMult);
+    }
     
     s.totalClicks++;
     s.totalLifts++;
     s.dailyClicks++;
     Game.addCoins(earned);
 
-    // Mr. DUMB animasyonu
+    // Mr. DUMB animasyonu — skin-aware
     UI.dumbFrame = (UI.dumbFrame + 1) % 2;
     const img = document.getElementById('dumbImg');
-    img.src = UI.dumbFrame === 0 ? 'assets/dumb_lift.png' : 'assets/dumb_lift2.png';
+    const skin = typeof SkinSystem !== 'undefined' ? SkinSystem.getActive() : { lift: 'assets/dumb_lift.png', lift2: 'assets/dumb_lift2.png', idle: 'assets/dumb_idle.png' };
+    img.src = UI.dumbFrame === 0 ? skin.lift : (skin.lift2 || skin.lift);
     clearTimeout(UI.dumbResetTimer);
-    UI.dumbResetTimer = setTimeout(() => { img.src = 'assets/dumb_idle.png'; }, 180);
+    UI.dumbResetTimer = setTimeout(() => { img.src = skin.idle; }, 180);
 
     // Tıklama pozisyonu
     const rect = document.getElementById('clickArea').getBoundingClientRect();
@@ -240,7 +246,12 @@ const UI = {
     // Eski: Math.ceil(Math.sqrt(clickPower)) - çok düşük hasar, boss öldüremezdin
     // Yeni: Logaritmik + sabit baz hasar, yüksek seviyede bear yenilebilir
     const cp = Game.state.clickPower;
-    const dmg = Math.max(1, Math.floor(Math.pow(cp, 0.4) + cp * 0.01 + 1));
+    let dmg = Math.max(1, Math.floor(Math.pow(cp, 0.4) + cp * 0.01 + 1));
+    // Skin bear damage bonus
+    if (typeof SkinSystem !== 'undefined') {
+      const bonus = SkinSystem.getBonus();
+      if (bonus.bearDmgMult) dmg = Math.floor(dmg * bonus.bearDmgMult);
+    }
     this.bear.hp -= dmg;
     document.getElementById('bearHpFill').style.width = Math.max(0, (this.bear.hp / this.bear.maxHp) * 100) + '%';
 
@@ -286,11 +297,14 @@ const UI = {
     let html = '';
     let lastCat = '';
 
-    // YENİ: Satın alma modu düğmesi
+    // Satın alma modu: 1x / 10x / Max
     html += '<div class="buy-mode-bar">';
-    html += '<span style="font-size:11px;color:#888">Buy Mode:</span>';
-    html += '<button class="buy-mode-btn' + (this._buyMode === '1x' ? ' active' : '') + '" onclick="UI._buyMode=\'1x\';UI.renderShop()">1x</button>';
-    html += '<button class="buy-mode-btn' + (this._buyMode === '10x' ? ' active' : '') + '" onclick="UI._buyMode=\'10x\';UI.renderShop()">10x</button>';
+    html += '<span style="font-size:11px;color:#888">Buy:</span>';
+    ['1x', '10x', 'Max'].forEach(m => {
+      html += '<button class="buy-mode-btn' + (this._buyMode === m ? ' active' : '') + '" onclick="UI._buyMode=\'' + m + '\';UI.renderShop()">' + m + '</button>';
+    });
+    // Toplam gelir özeti
+    html += '<span class="shop-income-summary">⚡ ' + formatNum(Game.state.clickPower) + '/tap · ' + formatNum(Game.state.perSecond) + '/s</span>';
     html += '</div>';
 
     UPGRADES.forEach(u => {
@@ -300,9 +314,46 @@ const UI = {
       }
 
       const owned = Game.getOwned(u.id);
-      const cost = Game.getUpgradeCost(u);
-      const canBuy = Game.state.coins >= cost && owned < u.max;
       const maxed = owned >= u.max;
+
+      // Mod'a göre maliyet ve miktar hesapla
+      let buyCount = 1;
+      let totalCost = Game.getUpgradeCost(u);
+      let canBuy = false;
+
+      if (maxed) {
+        canBuy = false;
+      } else if (this._buyMode === '1x') {
+        buyCount = 1;
+        totalCost = Game.getUpgradeCost(u);
+        canBuy = Game.state.coins >= totalCost;
+      } else if (this._buyMode === '10x') {
+        const bulk = Game.getBulkCost(u, 10);
+        buyCount = bulk.count;
+        totalCost = bulk.total;
+        canBuy = buyCount > 0 && Game.state.coins >= Game.getUpgradeCost(u);
+        // Gerçekten alınabilecek miktar
+        const affordable = Game.getAffordableCount(u);
+        buyCount = Math.min(10, affordable);
+        if (buyCount > 0) {
+          const affordBulk = Game.getBulkCost(u, buyCount);
+          totalCost = affordBulk.total;
+          canBuy = true;
+        } else {
+          totalCost = Game.getBulkCost(u, 10).total;
+          canBuy = false;
+        }
+      } else { // Max
+        const affordable = Game.getAffordableCount(u);
+        buyCount = affordable;
+        if (affordable > 0) {
+          totalCost = Game.getBulkCost(u, affordable).total;
+          canBuy = true;
+        } else {
+          totalCost = Game.getUpgradeCost(u);
+          canBuy = false;
+        }
+      }
 
       // İkon
       let iconHtml;
@@ -312,22 +363,49 @@ const UI = {
       else if (u.icon === 'eq2')  iconHtml = '<img src="assets/coin.png" alt="">';
       else                        iconHtml = '<span>' + u.icon + '</span>';
 
-      // YENİ: ROI göstergesi (yatırım geri dönüşü)
+      // Toplam katkı
+      let effectText = '';
+      if (u.effect.cp)   effectText = 'Total: +' + formatNum(u.effect.cp * owned) + '/tap';
+      if (u.effect.ps)   effectText = 'Total: +' + formatNum(u.effect.ps * owned) + '/s';
+      if (u.effect.mult) effectText = owned > 0 ? '✅ Active' : '';
+
+      // ROI (sadece per-second upgrade'ler)
       let roiText = '';
       if (!maxed && u.effect.ps) {
-        const nextPs = u.effect.ps;
-        const paybackSec = cost / nextPs;
-        roiText = '<div class="shop-roi">ROI: ' + formatTime(paybackSec) + '</div>';
+        const nextCost = Game.getUpgradeCost(u);
+        const paybackSec = nextCost / u.effect.ps;
+        roiText = ' · ROI: ' + formatTime(paybackSec);
       }
+
+      // Progress bar
+      const progressPct = Math.min(100, (owned / u.max) * 100);
 
       html += '<div class="shop-item' + (canBuy ? ' affordable' : '') + (maxed ? ' maxed' : '') + '" data-id="' + u.id + '">';
       html += '<div class="shop-icon">' + iconHtml + '</div>';
-      html += '<div style="flex:1"><div class="shop-name">' + escapeHtml(u.name) + '</div>';
+      html += '<div class="shop-info">';
+      html += '<div class="shop-name">' + escapeHtml(u.name) + '</div>';
       html += '<div class="shop-desc">' + escapeHtml(u.desc) + '</div>';
-      html += '<div class="shop-owned">Owned: ' + owned + (u.max < 200 ? ' / ' + u.max : '') + '</div>';
-      html += roiText;
+      html += '<div class="shop-meta">';
+      html += '<span class="shop-owned">' + owned + '/' + u.max + '</span>';
+      if (effectText) html += '<span class="shop-effect">' + effectText + '</span>';
+      if (roiText && this._buyMode === '1x') html += '<span class="shop-roi-tag">' + roiText + '</span>';
       html += '</div>';
-      html += '<div class="shop-cost' + (canBuy ? '' : ' expensive') + '">' + (maxed ? 'MAX' : formatNum(cost)) + '</div>';
+      // Progress bar
+      html += '<div class="shop-progress"><div class="shop-progress-fill" style="width:' + progressPct + '%"></div></div>';
+      html += '</div>';
+
+      // Fiyat alanı
+      html += '<div class="shop-cost-area">';
+      if (maxed) {
+        html += '<div class="shop-cost-maxed">MAX</div>';
+      } else {
+        // Miktar göster (10x/Max modunda)
+        if (this._buyMode !== '1x' && buyCount > 0) {
+          html += '<div class="shop-cost-count">×' + buyCount + '</div>';
+        }
+        html += '<div class="shop-cost' + (canBuy ? '' : ' expensive') + '">' + formatNum(totalCost) + '</div>';
+      }
+      html += '</div>';
       html += '</div>';
     });
 
@@ -336,8 +414,11 @@ const UI = {
     // Click handler'lar
     panel.querySelectorAll('.shop-item:not(.maxed)').forEach(el => {
       el.onclick = () => {
-        if (UI._buyMode === '10x') {
-          Game.buyUpgradeMax(el.dataset.id);
+        const mode = UI._buyMode;
+        if (mode === '10x') {
+          Game.buyUpgradeN(el.dataset.id, 10);
+        } else if (mode === 'Max') {
+          Game.buyUpgradeN(el.dataset.id, -1);
         } else {
           Game.buyUpgrade(el.dataset.id);
         }
@@ -419,18 +500,18 @@ const UI = {
   renderPrestige() {
     const panel = document.getElementById('prePanel');
     const s = Game.state;
-    const nextMult = (1 + s.prestige * 0.5 + 0.5).toFixed(1);
-    const canPrestige = s.level >= 20;
+    const nextMult = (1 + s.prestige * 0.25 + 0.25).toFixed(2);
+    const canPrestige = s.level >= 30;
 
     let html = '<div class="prestige-box"><h3>⭐ PRESTIGE</h3>';
-    html += '<div style="color:#aaa;font-size:13px;margin-bottom:12px">Reset progress for permanent multiplier. Requires Level 20+</div>';
+    html += '<div style="color:#aaa;font-size:13px;margin-bottom:12px">Reset progress for permanent multiplier. Requires Level 30+</div>';
     html += '<div style="color:#666;font-size:12px">Current</div>';
     html += '<div class="prestige-mult">x' + s.prestigeMult.toFixed(1) + '</div>';
     html += '<div style="color:#666;font-size:12px">After prestige</div>';
     html += '<div class="prestige-mult" style="color:var(--purple)">x' + nextMult + '</div>';
     html += '<div style="color:#ff8888;font-size:11px;margin:8px 0">⚠️ Coins, upgrades, and level reset. Stats kept!</div>';
     html += '<button class="btn-prestige" ' + (canPrestige ? 'onclick="Game.confirmPrestige()"' : 'disabled') + '>';
-    html += canPrestige ? 'PRESTIGE ⭐' : 'Need Lvl 20 (Now: ' + s.level + ')';
+    html += canPrestige ? 'PRESTIGE ⭐' : 'Need Lvl 30 (Now: ' + s.level + ')';
     html += '</button></div>';
 
     // Token ödülleri
@@ -457,7 +538,7 @@ const UI = {
 
     // Sıfırlama butonu
     html += '<div style="text-align:center;margin-top:16px">';
-    html += '<button onclick="if(confirm(\'Bu işlem tüm ilerlemeyi silecek! Emin misin?\')){localStorage.clear();location.reload()}" style="font-size:11px;padding:6px 14px;border:1px solid #333;background:transparent;color:#555;cursor:pointer;border-radius:6px">🗑️ Reset All Data</button>';
+    html += '<button onclick="UI.confirmReset()" style="font-size:11px;padding:6px 14px;border:1px solid #333;background:transparent;color:#555;cursor:pointer;border-radius:6px">🗑️ Reset All Data</button>';
     html += '</div>';
 
     panel.innerHTML = html;
@@ -520,4 +601,21 @@ const UI = {
   closeOffline()  { document.getElementById('offlineModal').classList.remove('show'); UI.updateStats(); },
   closePrestige() { document.getElementById('prestigeConfirm').classList.remove('show'); },
   closeWallet()   { document.getElementById('walletModal').classList.remove('show'); },
+
+  // ==================== RESET ====================
+  confirmReset() {
+    document.getElementById('resetConfirm').classList.add('show');
+  },
+  closeReset() {
+    document.getElementById('resetConfirm').classList.remove('show');
+  },
+  doReset() {
+    try {
+      localStorage.removeItem(SAVE_KEY);
+      localStorage.removeItem('dumbgym_lb');
+      localStorage.removeItem('dumbgym_v3');
+      localStorage.removeItem(AUTH_ID_KEY);
+    } catch (e) {}
+    location.reload();
+  },
 };

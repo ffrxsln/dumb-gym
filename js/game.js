@@ -51,6 +51,9 @@ const Game = {
       highestLevel: 1,
       totalSpins: 0,
       totalUpgradesBought: 0,
+      // Skin sistemi
+      selectedSkin: 'dumb',
+      ownedSkins: ['dumb'],
     };
   },
 
@@ -96,6 +99,14 @@ const Game = {
       this.state.boostUntil = 0;
     }
 
+    // Skin bonus
+    if (typeof SkinSystem !== 'undefined') {
+      const bonus = SkinSystem.getBonus();
+      if (bonus.coinMult) mult *= bonus.coinMult;
+      if (bonus.clickMult) cp *= bonus.clickMult;
+      if (bonus.psMult) ps *= bonus.psMult;
+    }
+
     this.state.clickPower = Math.max(1, Math.floor(cp * mult));
     this.state.perSecond = Math.floor(ps * mult);
   },
@@ -112,7 +123,7 @@ const Game = {
 
   /* ---- Level Kontrolü ---- */
   getLevelThreshold(lvl) {
-    return Math.floor(80 * Math.pow(1.35, lvl - 1) * lvl);
+    return Math.floor(200 * Math.pow(1.50, lvl - 1) * lvl);
   },
 
   checkLevel() {
@@ -186,18 +197,70 @@ const Game = {
     }
   },
 
+  /* ---- N adet satın al ---- */
+  buyUpgradeN(id, n) {
+    const u = UPGRADES.find(x => x.id === id);
+    if (!u) return;
+    let bought = 0;
+    const limit = n === -1 ? 9999 : n;
+    for (let i = 0; i < limit; i++) {
+      const cost = this.getUpgradeCost(u);
+      const owned = this.getOwned(u.id);
+      if (this.state.coins < cost || owned >= u.max) break;
+      this.state.coins -= cost;
+      this.state.upgrades[u.id] = owned + 1;
+      bought++;
+    }
+    if (bought > 0) {
+      this.state.dailyBuys += bought;
+      this.state.totalUpgradesBought += bought;
+      this.calcStats();
+      SFX.buy();
+      UI.renderShop();
+      UI.updateStats();
+      this.checkDailyChallenge();
+      this.save();
+    }
+  },
+
+  /* ---- N adet almanın toplam maliyeti ---- */
+  getBulkCost(upgrade, n) {
+    const owned = this.getOwned(upgrade.id);
+    const remaining = upgrade.max - owned;
+    const count = n === -1 ? remaining : Math.min(n, remaining);
+    let total = 0;
+    for (let i = 0; i < count; i++) {
+      total += Math.floor(upgrade.base * Math.pow(upgrade.scale, owned + i));
+    }
+    return { total, count };
+  },
+
+  /* ---- Kaç tane alınabilir ---- */
+  getAffordableCount(upgrade) {
+    const owned = this.getOwned(upgrade.id);
+    let coins = this.state.coins;
+    let count = 0;
+    for (let i = owned; i < upgrade.max; i++) {
+      const cost = Math.floor(upgrade.base * Math.pow(upgrade.scale, i));
+      if (coins < cost) break;
+      coins -= cost;
+      count++;
+    }
+    return count;
+  },
+
   /* ---- Prestige ---- */
   confirmPrestige() {
-    if (this.state.level < 20) return;
+    if (this.state.level < 30) return;
     document.getElementById('prestigeConfirm').classList.add('show');
   },
 
   doPrestige() {
-    if (this.state.level < 20) return;
+    if (this.state.level < 30) return;
     document.getElementById('prestigeConfirm').classList.remove('show');
 
     this.state.prestige++;
-    this.state.prestigeMult = 1 + this.state.prestige * 0.5;
+    this.state.prestigeMult = 1 + this.state.prestige * 0.25;
     this.state.coins = 0;
     this.state.level = 1;
     this.state.sessionCoins = 0;
@@ -365,8 +428,9 @@ const Game = {
       this.state.saveVersion = SAVE_VERSION;
       this.state.lastSave = Date.now();
       localStorage.setItem(SAVE_KEY, JSON.stringify(this.state));
+      // Cloud save (debounced)
+      if (typeof CloudSave !== 'undefined') CloudSave.save();
     } catch (e) {
-      // localStorage dolu veya erişilemez
       console.warn('Save failed:', e.message);
     }
   },

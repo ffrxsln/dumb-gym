@@ -11,6 +11,10 @@
   UI.updateStats();
   UI.renderShop();
 
+  // ==================== SKIN BAŞLAT ====================
+  const activeSkin = SkinSystem.getActive();
+  document.getElementById('dumbImg').src = activeSkin.idle;
+
   // ==================== WALLET AUTO RECONNECT ====================
   Wallet.autoReconnect();
 

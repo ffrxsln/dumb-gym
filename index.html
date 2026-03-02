@@ -56,6 +56,7 @@
         <img id="dumbImg" src="assets/dumb_idle.png" alt="Mr. DUMB" width="260" height="260">
       </div>
       <div class="lift-counter">Total bags: <b id="totalLifts">0</b></div>
+      <button class="skin-change-btn" onclick="SkinSystem.renderModal()">🎨 Change Skin</button>
       <div class="gym-floor"></div>
 
       <!-- BEAR ATTACK OVERLAY -->
@@ -140,6 +141,31 @@
     <button class="btn-cancel" style="margin-top:12px;font-size:14px;padding:6px 20px" onclick="document.getElementById('loginModal').classList.remove('show')">Skip for now</button>
   </div>
 
+  <div class="modal" id="resetConfirm" role="dialog">
+    <h2 style="color:#FF4444">🗑️ RESET ALL DATA?</h2>
+    <div class="modal-desc" style="color:#ff8888;max-width:300px">
+      Bu işlem tüm ilerlemeyi silecek!<br>
+      Coins, upgrades, level, prestige...<br>
+      <b>GERİ ALINAMAZ!</b>
+    </div>
+    <div class="modal-buttons">
+      <button class="btn-prestige" style="background:linear-gradient(180deg,#CC2222,#881111);border-color:#FF4444" onclick="UI.doReset()">YES, DELETE ALL</button>
+      <button class="btn-cancel" onclick="UI.closeReset()">CANCEL</button>
+    </div>
+  </div>
+
+  <!-- SKIN SELECTION MODAL -->
+  <div class="skin-modal" id="skinModal">
+    <div class="skin-modal-inner">
+      <div class="skin-modal-header">
+        <h2 class="skin-modal-title">🥊 CHARACTER SELECT</h2>
+        <div class="skin-modal-subtitle">CHOOSE YOUR FIGHTER!</div>
+        <button class="skin-close-btn" onclick="SkinSystem.closeModal()">✕</button>
+      </div>
+      <div class="skin-grid" id="skinGrid"></div>
+    </div>
+  </div>
+
   <!-- SCRIPTS -->
   <script src="js/sfx.js"></script>
   <script src="js/data.js"></script>
@@ -147,6 +173,8 @@
   <script src="js/ui.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/leaderboard.js"></script>
+  <script src="js/cloudsave.js"></script>
+  <script src="js/skins.js"></script>
   <script src="js/wallet.js"></script>
   <script src="js/app.js"></script>
 
