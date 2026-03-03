@@ -90,6 +90,12 @@ const MILESTONES = [
   // Streak
   { id: 's7',  name: 'Week Warrior',    desc: '7 day streak',  target: 7,  current: () => Game.state.streak, reward: 8000 },
   { id: 's30', name: 'Monthly Monster', desc: '30 day streak', target: 30, current: () => Game.state.streak, reward: 80000 },
+
+  // Arena
+  { id: 'aw5',   name: 'Arena Rookie',    desc: 'Win 5 arena fights',     target: 5,   current: () => Game.state.arenaWins || 0,   reward: 2000 },
+  { id: 'aw25',  name: 'Arena Fighter',   desc: 'Win 25 arena fights',    target: 25,  current: () => Game.state.arenaWins || 0,   reward: 25000 },
+  { id: 'aw100', name: 'Arena Champion',  desc: 'Win 100 arena fights',   target: 100, current: () => Game.state.arenaWins || 0,   reward: 250000 },
+  { id: 'af50',  name: 'Arena Veteran',   desc: 'Fight 50 arena battles', target: 50,  current: () => Game.state.arenaFights || 0, reward: 10000 },
 ];
 
 /* ---- Bear Tanımları ---- */

@@ -67,7 +67,10 @@
         </div>
       </div>
       <div class="lift-counter">Total bags: <b id="totalLifts">0</b></div>
-      <button class="skin-change-btn" onclick="SkinSystem.renderModal()">🎨 Change Skin</button>
+      <div class="gym-btns">
+        <button class="skin-change-btn" onclick="SkinSystem.renderModal()">🎨 Skin</button>
+        <button class="arena-open-btn" onclick="Arena.renderPanel()">⚔️ Arena</button>
+      </div>
       <div class="gym-floor"></div>
 
       <!-- BEAR ATTACK OVERLAY -->
@@ -165,6 +168,27 @@
     </div>
   </div>
 
+  <!-- TUTORIAL OVERLAY -->
+  <div class="tutorial-overlay" id="tutorialOverlay">
+    <div class="tutorial-box">
+      <div class="tutorial-msg" id="tutorialMsg"></div>
+      <button class="tutorial-btn" id="tutorialBtn" onclick="Tutorial.dismiss()">NEXT</button>
+      <div class="tutorial-skip" onclick="Tutorial.finish()">skip tutorial</div>
+    </div>
+  </div>
+
+  <!-- ARENA MODAL -->
+  <div class="arena-modal" id="arenaModal">
+    <div class="arena-modal-inner">
+      <div class="arena-modal-header">
+        <h2 class="arena-modal-title">⚔️ PK ARENA</h2>
+        <div class="arena-modal-subtitle">CHALLENGE OTHER LIFTERS!</div>
+        <button class="arena-close-btn" onclick="Arena.closeModal()">✕</button>
+      </div>
+      <div class="arena-content" id="arenaContent"></div>
+    </div>
+  </div>
+
   <!-- SKIN SELECTION MODAL -->
   <div class="skin-modal" id="skinModal">
     <div class="skin-modal-inner">
@@ -187,6 +211,8 @@
   <script src="js/cloudsave.js"></script>
   <script src="js/skins.js"></script>
   <script src="js/wallet.js"></script>
+  <script src="js/tutorial.js"></script>
+  <script src="js/arena.js"></script>
   <script src="js/app.js"></script>
 
 </body>
