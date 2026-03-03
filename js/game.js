@@ -55,6 +55,10 @@ const Game = {
       // Skin sistemi
       selectedSkin: 'dumb',
       ownedSkins: ['dumb'],
+      // Arena PK sistemi
+      arenaWins: 0,
+      arenaLosses: 0,
+      arenaFights: 0,
     };
   },
 
@@ -176,6 +180,8 @@ const Game = {
     UI.updateStats();
     this.checkDailyChallenge();
     this.save();
+    // Tutorial hook
+    if (typeof Tutorial !== 'undefined') Tutorial.onBuy();
   },
 
   /* ---- N adet satın al ---- */

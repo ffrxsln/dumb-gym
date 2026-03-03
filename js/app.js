@@ -35,6 +35,9 @@
     Leaderboard.submit();
   });
 
+  // ==================== TUTORIAL BAŞLAT ====================
+  Tutorial.init();
+
   // ==================== SES - İLK ETKİLEŞİMDE BAŞLAT ====================
   function initAudio() {
     SFX.init();

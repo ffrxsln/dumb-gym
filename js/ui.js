@@ -176,6 +176,9 @@ const UI = {
     Game.checkLevel();
     Game.checkDailyChallenge();
     UI.updateStats();
+
+    // Tutorial hook
+    if (typeof Tutorial !== 'undefined') Tutorial.onClick();
   },
 
   // ==================== CLICK POP — Basit yukari suzulme ====================
@@ -617,6 +620,8 @@ const UI = {
     html += '<div>Lucky Spins: <b style="color:var(--orange)">' + (s.totalSpins || 0) + '</b></div>';
     html += '<div>Day Streak: <b style="color:var(--orange)">' + s.streak + '</b></div>';
     html += '<div>Current Level: <b style="color:var(--blue)">' + s.level + '</b></div>';
+    html += '<div>Arena Wins: <b style="color:var(--red)">' + (s.arenaWins || 0) + '</b></div>';
+    html += '<div>Arena Fights: <b style="color:var(--red)">' + (s.arenaFights || 0) + '</b></div>';
     html += '</div></div>';
 
     // Sıfırlama butonu
@@ -680,6 +685,9 @@ const UI = {
     if (tab === 'ms')   this.renderMilestones();
     if (tab === 'lb')   Leaderboard.render();
     if (tab === 'pre')  this.renderPrestige();
+
+    // Tutorial hook
+    if (typeof Tutorial !== 'undefined') Tutorial.onTabSwitch(tab);
   },
 
   // ==================== TOAST ====================
