@@ -99,44 +99,55 @@ const CloudSave = {
   async syncOnLogin() {
     if (!Auth.user) return;
 
-    const userId = Auth.getId();
-    const cloud = await this.load(userId);
+    // FIX: Sync sırasında game tick'leri duraklat — race condition önleme
+    Game._syncLock = true;
 
-    if (!cloud || !cloud.data) {
-      // Cloud'da save yok — mevcut local'i cloud'a yükle
-      this._doSave();
-      return;
-    }
+    try {
+      const userId = Auth.getId();
+      const cloud = await this.load(userId);
 
-    const localSave = Game.state;
-    const cloudData = cloud.data;
+      if (!cloud || !cloud.data) {
+        // Cloud'da save yok — mevcut local'i cloud'a yükle
+        this._doSave();
+        return;
+      }
 
-    // Hangisi daha ileri? totalCoins + prestige + level karşılaştır
-    const localScore = (localSave.totalCoins || 0) + (localSave.prestige || 0) * 1e9 + (localSave.level || 1) * 1e6;
-    const cloudScore = (cloudData.totalCoins || 0) + (cloudData.prestige || 0) * 1e9 + (cloudData.level || 1) * 1e6;
+      const localSave = Game.state;
+      const cloudData = cloud.data;
 
-    if (cloudScore > localScore) {
-      // Cloud daha ileri — cloud'u yükle
-      const defaults = Game._defaultState();
-      Object.keys(defaults).forEach(key => {
-        if (cloudData[key] !== undefined) {
-          Game.state[key] = cloudData[key];
-        }
-      });
+      // Hangisi daha ileri? totalCoins + prestige + level karşılaştır
+      const localScore = (localSave.totalCoins || 0) + (localSave.prestige || 0) * 1e9 + (localSave.level || 1) * 1e6;
+      const cloudScore = (cloudData.totalCoins || 0) + (cloudData.prestige || 0) * 1e9 + (cloudData.level || 1) * 1e6;
 
-      // User bilgilerini güncelle
-      Game.state.userId = userId;
-      Game.state.userName = Auth.getDisplayName();
+      if (cloudScore > localScore) {
+        // Cloud daha ileri — cloud'u yükle
+        const defaults = Game._defaultState();
+        Object.keys(defaults).forEach(key => {
+          if (cloudData[key] !== undefined) {
+            Game.state[key] = cloudData[key];
+          }
+        });
 
-      Game.calcStats();
-      Game.save();
-      UI.updateStats();
-      if (UI.currentTab === 'shop') UI.renderShop();
+        // User bilgilerini güncelle
+        Game.state.userId = userId;
+        Game.state.userName = Auth.getDisplayName();
 
-      UI.toast('☁️ Cloud save yüklendi!');
-    } else {
-      // Local daha ileri — cloud'u güncelle
-      this._doSave();
+        Game.calcStats();
+        Game._dirty = true;
+        Game.save();
+        UI.updateStats();
+        if (UI.currentTab === 'shop') UI.renderShop();
+
+        UI.toast('☁️ Cloud save yüklendi!');
+      } else {
+        // Local daha ileri — cloud'u güncelle
+        this._doSave();
+      }
+    } catch (e) {
+      console.warn('syncOnLogin hata:', e.message);
+    } finally {
+      // FIX: Her durumda sync lock'u kaldır
+      Game._syncLock = false;
     }
   },
 

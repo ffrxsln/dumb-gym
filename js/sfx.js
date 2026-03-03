@@ -9,6 +9,8 @@ const SFX = {
   ctx: null,
   enabled: true,
   volume: 0.3,
+  _activeSounds: 0,       // FIX: Aktif ses sayısı takibi
+  _maxConcurrent: 12,     // FIX: Aynı anda maksimum ses — mobilde AudioContext taşmasını önle
 
   /* ---- Initialize Audio Context ---- */
   init() {
@@ -28,6 +30,9 @@ const SFX = {
   /* ---- Core: Play a tone ---- */
   _tone(freq, duration, type, vol, delay) {
     if (!this.enabled || !this.ctx) return;
+    // FIX: Eşzamanlı ses sınırı — mobilde taşmayı önle
+    if (this._activeSounds >= this._maxConcurrent) return;
+    this._activeSounds++;
     const t = this.ctx.currentTime + (delay || 0);
     const osc = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
@@ -39,11 +44,19 @@ const SFX = {
     gain.connect(this.ctx.destination);
     osc.start(t);
     osc.stop(t + duration);
+    // FIX: Node bitince sayacı düşür — GC'ye yardım et
+    osc.onended = () => {
+      this._activeSounds = Math.max(0, this._activeSounds - 1);
+      osc.disconnect();
+      gain.disconnect();
+    };
   },
 
   /* ---- Core: Play noise burst ---- */
   _noise(duration, vol, delay) {
     if (!this.enabled || !this.ctx) return;
+    if (this._activeSounds >= this._maxConcurrent) return;
+    this._activeSounds++;
     const t = this.ctx.currentTime + (delay || 0);
     const bufferSize = this.ctx.sampleRate * duration;
     const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
@@ -58,6 +71,12 @@ const SFX = {
     source.connect(gain);
     gain.connect(this.ctx.destination);
     source.start(t);
+    // FIX: Node bitince sayacı düşür
+    source.onended = () => {
+      this._activeSounds = Math.max(0, this._activeSounds - 1);
+      source.disconnect();
+      gain.disconnect();
+    };
   },
 
   // ==================== GAME SOUNDS ====================
@@ -176,6 +195,8 @@ const SFX = {
   /* 🔇 Toggle sound */
   toggle() {
     this.enabled = !this.enabled;
+    // FIX: Ses tercihi kalıcı olsun
+    try { localStorage.setItem('dumbgym_sound', this.enabled ? '1' : '0'); } catch(e) {}
     return this.enabled;
   },
 };

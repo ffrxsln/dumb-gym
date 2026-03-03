@@ -21,9 +21,9 @@
     <div class="logo">DUMB GYM</div>
     <button class="wallet-btn" id="walletBtn" onclick="Auth.showLogin()" aria-label="Login">👤 Login</button>
     <button class="sound-btn" id="soundBtn" onclick="SFX.init();const on=SFX.toggle();this.textContent=on?'🔊':'🔇'" aria-label="Toggle sound">🔊</button>
-    <div class="coins-box" aria-label="Coins">
+    <div class="coins-box" aria-label="Coins" aria-live="polite">
       <img src="assets/coin.png" alt="coin" width="22" height="22">
-      <span id="coinCount">0</span>
+      <span id="coinCount" aria-label="Coin count">0</span>
     </div>
   </div>
 
@@ -53,7 +53,18 @@
     <!-- GYM VIEW -->
     <div class="gym" id="gymView">
       <div class="click-area" id="clickArea" role="button" aria-label="Click to lift">
-        <img id="dumbImg" src="assets/dumb_idle.png" alt="Mr. DUMB" width="260" height="260">
+        <img id="dumbImg" src="assets/dumb_idle.png" alt="Mr. DUMB" width="300" height="300">
+        <!-- PUNCHING BAG -->
+        <div class="punching-bag" id="punchBag">
+          <div class="pb-chain"></div>
+          <div class="pb-mount"></div>
+          <div class="pb-body">
+            <div class="pb-stripe"></div>
+            <div class="pb-logo">DUMB</div>
+            <div class="pb-stripe"></div>
+          </div>
+          <div class="pb-bottom"></div>
+        </div>
       </div>
       <div class="lift-counter">Total bags: <b id="totalLifts">0</b></div>
       <button class="skin-change-btn" onclick="SkinSystem.renderModal()">🎨 Change Skin</button>
@@ -83,12 +94,12 @@
   </div>
 
   <!-- TAB BAR -->
-  <div class="tabs">
-    <div class="tab active" data-tab="gym">🏋️ Gym</div>
-    <div class="tab" data-tab="shop">🛒 Shop<span class="tab-notif" id="shopNotif"></span></div>
-    <div class="tab" data-tab="ms">🎯 Goals</div>
-    <div class="tab" data-tab="lb">👑 Top</div>
-    <div class="tab" data-tab="pre">⭐ More</div>
+  <div class="tabs" role="tablist" aria-label="Game sections">
+    <div class="tab active" data-tab="gym" role="tab" aria-selected="true">🏋️ Gym</div>
+    <div class="tab" data-tab="shop" role="tab" aria-selected="false">🛒 Shop<span class="tab-notif" id="shopNotif"></span></div>
+    <div class="tab" data-tab="ms" role="tab" aria-selected="false">🎯 Goals</div>
+    <div class="tab" data-tab="lb" role="tab" aria-selected="false">👑 Top</div>
+    <div class="tab" data-tab="pre" role="tab" aria-selected="false">⭐ Prestige</div>
   </div>
 
   <div class="ca-text">$DUMB on Solana | CA: 8DodKZzn1PnbmiJTKhavVxqpsTMiepHSuqwTKnDSpump</div>
@@ -144,9 +155,9 @@
   <div class="modal" id="resetConfirm" role="dialog">
     <h2 style="color:#FF4444">🗑️ RESET ALL DATA?</h2>
     <div class="modal-desc" style="color:#ff8888;max-width:300px">
-      Bu işlem tüm ilerlemeyi silecek!<br>
+      This will delete ALL progress!<br>
       Coins, upgrades, level, prestige...<br>
-      <b>GERİ ALINAMAZ!</b>
+      <b>CANNOT BE UNDONE!</b>
     </div>
     <div class="modal-buttons">
       <button class="btn-prestige" style="background:linear-gradient(180deg,#CC2222,#881111);border-color:#FF4444" onclick="UI.doReset()">YES, DELETE ALL</button>

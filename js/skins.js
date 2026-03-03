@@ -192,12 +192,36 @@ const SkinSystem = {
     // Telegram dışında: coin ile satın alma fallback
     const coinPrice = skin.price * 1000;
     if (Game.state.coins >= coinPrice) {
-      if (confirm('Buy ' + skin.name + ' for ' + formatNum(coinPrice) + ' coins?')) {
-        Game.state.coins -= coinPrice;
-        this._unlockSkin(id);
-      }
+      // FIX: confirm() Telegram Mini App'te düzgün çalışmaz — custom modal kullan
+      this._showPurchaseConfirm(id, skin.name, coinPrice);
     } else {
       UI.toast('❌ Not enough coins! Need ' + formatNum(coinPrice));
+    }
+  },
+
+  // FIX: Telegram-uyumlu satın alma onay modalı
+  _showPurchaseConfirm(skinId, skinName, price) {
+    const modal = document.getElementById('walletModal');
+    const msg = document.getElementById('walletMsg');
+    msg.innerHTML =
+      '<div style="text-align:center">' +
+      '<div style="font-size:24px;margin-bottom:8px">🛒</div>' +
+      '<div style="font-size:16px;font-weight:700;color:var(--gold);margin-bottom:8px">Buy ' + escapeHtml(skinName) + '?</div>' +
+      '<div style="font-size:14px;color:#aaa;margin-bottom:16px">Cost: ' + formatNum(price) + ' coins</div>' +
+      '<div style="display:flex;gap:8px;justify-content:center">' +
+      '<button onclick="SkinSystem._confirmPurchase(\'' + skinId + '\',' + price + ')" style="font-family:Bangers,cursive;font-size:16px;padding:8px 24px;border:2px solid var(--green);background:linear-gradient(180deg,#228B22,#006400);color:#fff;cursor:pointer;border-radius:8px">BUY 💰</button>' +
+      '<button onclick="UI.closeWallet()" style="font-size:14px;padding:8px 20px;border:1px solid #333;background:transparent;color:#888;cursor:pointer;border-radius:6px">Cancel</button>' +
+      '</div></div>';
+    modal.classList.add('show');
+  },
+
+  _confirmPurchase(id, price) {
+    document.getElementById('walletModal').classList.remove('show');
+    if (Game.state.coins >= price) {
+      Game.state.coins -= price;
+      this._unlockSkin(id);
+    } else {
+      UI.toast('❌ Not enough coins!');
     }
   },
 

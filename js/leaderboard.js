@@ -45,17 +45,32 @@ const Leaderboard = {
 
     getPlayerEntry() {
         const s = Game.state;
+
+        // FIX: Anti-cheat — submit sırasında da clamp uygula
+        const level = clampValue(s.level, 1, LIMITS.maxLevel);
+        const prestige = clampValue(s.prestige, 0, LIMITS.maxPrestige);
+        const totalCoins = clampValue(s.totalCoins, 0, LIMITS.maxCoins);
+        const totalClicks = clampValue(s.totalClicks, 0, LIMITS.maxClicks);
+        const bearKills = clampValue(s.bearKills, 0, LIMITS.maxBearKills);
+
+        // FIX: Anti-cheat — basit hız kontrolü
+        // Level ve coin arasında mantıklı bir ilişki olmalı
+        const playTimeSec = Math.max(1, (Date.now() - (s.startTime || Date.now())) / 1000);
+        const coinsPerSec = totalCoins / playTimeSec;
+        // Makul üst sınır: ~50K/sec (çok yüksek prestige + tüm upgrades)
+        const sanitizedCoins = coinsPerSec > 100000 ? Math.floor(playTimeSec * 100000) : totalCoins;
+
         return {
             user_id: Auth.getId(),
             display_name: escapeHtml(Auth.getDisplayName()).slice(0, 20),
             wallet: s.walletAddr || null,
             login_method: Auth.user ? Auth.user.method : 'anonymous',
-            level: clampValue(s.level, 1, 999),
-            prestige: clampValue(s.prestige, 0, 999),
+            level: level,
+            prestige: prestige,
             prestige_mult: s.prestigeMult,
-            total_coins: clampValue(s.totalCoins, 0, LIMITS.maxCoins),
-            total_clicks: clampValue(s.totalClicks, 0, LIMITS.maxClicks),
-            bear_kills: clampValue(s.bearKills, 0, LIMITS.maxBearKills),
+            total_coins: sanitizedCoins,
+            total_clicks: totalClicks,
+            bear_kills: bearKills,
             token_reward: Game.calcTokenReward(),
             updated_at: new Date().toISOString(),
         };
@@ -105,6 +120,8 @@ const Leaderboard = {
                         this.loading = false;
                         const myId = Auth.getId();
                         if (!this.data.find(e => e.user_id === myId)) {
+                            // FIX: Kendi sıramızı ayrı query ile çek (top 50'de değilsek)
+                            this._fetchSelfRank(myId);
                             this.data.push(this.getPlayerEntry());
                         }
                         return;
@@ -114,6 +131,27 @@ const Leaderboard = {
             this.loading = false;
         }
         this.data = this._loadLocal();
+    },
+
+    // FIX: Kendi sıramızı bul — top 50 dışındayken
+    _selfRank: null,
+    async _fetchSelfRank(userId) {
+        try {
+            const col = this.sortBy;
+            const myEntry = this.getPlayerEntry();
+            const myVal = myEntry[col] || 0;
+            // Bizden yüksek kaç kişi var?
+            const res = await fetch(
+                this.SUPABASE_URL + '/rest/v1/leaderboard?select=user_id&' + encodeURIComponent(col) + '=gt.' + myVal,
+                { headers: { 'apikey': this.SUPABASE_KEY, 'Authorization': 'Bearer ' + this.SUPABASE_KEY } }
+            );
+            if (res.ok) {
+                const json = await res.json();
+                if (Array.isArray(json)) {
+                    this._selfRank = json.length + 1;
+                }
+            }
+        } catch (e) { /* sessizce devam et */ }
     },
 
     _saveLocal(entry) {
@@ -183,10 +221,12 @@ const Leaderboard = {
                 const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '#' + rank;
 
                 let avatar = '👤';
-                if (entry.login_method === 'telegram') avatar = '📱';
-                else if (entry.login_method === 'wallet' || entry.wallet) avatar = '🔗';
+                if (safeMethod === 'telegram') avatar = '📱';
+                else if (safeMethod === 'wallet' || entry.wallet) avatar = '🔗';
 
                 const safeName = escapeHtml(entry.display_name || 'Anonymous');
+                // FIX: Tüm harici alanları escape et — sadece name değil
+                const safeMethod = escapeHtml(entry.login_method || 'anonymous');
                 const scoreVal = entry[this.sortBy] || 0;
                 const scoreLabel = this.sortBy === 'level' ? ('Lvl ' + scoreVal) : ('⭐ ' + scoreVal);
 
@@ -203,10 +243,12 @@ const Leaderboard = {
             html += '</div>';
         }
 
-        // Sıralama
+        // Sıralama — FIX: Top 50 dışındaysa gerçek sıramızı göster
         const myRank = sorted.findIndex(e => e.user_id === myId) + 1;
-        if (myRank > 0) {
-            html += '<div class="lb-myrank">YOUR RANK: #' + myRank + ' OF ' + sorted.length + '</div>';
+        const displayRank = (myRank > 0 && myRank <= 50) ? myRank : (this._selfRank || myRank);
+        const totalCount = this._selfRank ? Math.max(sorted.length, this._selfRank) : sorted.length;
+        if (displayRank > 0) {
+            html += '<div class="lb-myrank">YOUR RANK: #' + displayRank + ' OF ' + totalCount + '</div>';
         }
 
         // Giriş
@@ -219,7 +261,7 @@ const Leaderboard = {
 
         // Paylaş
         const me = this.getPlayerEntry();
-        const tweet = '👑 #' + (myRank || '?') + ' on DUMB GYM TYCOON!\n\n💰 ' + formatNum(me.total_coins) +
+        const tweet = '👑 #' + (displayRank || '?') + ' on DUMB GYM TYCOON!\n\n💰 ' + formatNum(me.total_coins) +
             '\n⭐ Lvl ' + me.level + ' · Prestige ' + me.prestige +
             '\n🐻 ' + me.bear_kills + ' bears\n\nBeat me! 💪\n\nCA: ' + CA + '\n#DUMB #Solana';
         html += '<div style="text-align:center;margin-top:12px">';
@@ -231,6 +273,7 @@ const Leaderboard = {
     changeSort(key) {
         this.sortBy = key;
         this.lastSync = 0;
+        this._selfRank = null; // FIX: Sort değişince sıralamayı yeniden çek
         this.render();
     },
 };

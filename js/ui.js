@@ -10,6 +10,7 @@ const UI = {
   dumbResetTimer: null,
   idleAccumulator: 0,
   _activePopCount: 0,    // BUG FIX: Pop element sayacı
+  _popPool: [],          // FIX: Element pooling - GC pressure azalt
   _activeParticles: 0,   // BUG FIX: Parçacık sayacı
   _activeToasts: 0,      // BUG FIX: Toast sayacı
   _buyMode: '1x',        // YENİ: Satın alma modu
@@ -92,6 +93,10 @@ const UI = {
     if (s.comboCount > (s.maxCombo || 0)) {
       s.maxCombo = s.comboCount;
     }
+    // FIX: Günlük combo takibi (daily challenge için)
+    if (s.comboCount > (s.dailyMaxCombo || 0)) {
+      s.dailyMaxCombo = s.comboCount;
+    }
     
     const comboMult = s.comboCount >= 30 ? 5 : s.comboCount >= 20 ? 3 : s.comboCount >= 10 ? 2 : 1;
     let earned = s.clickPower * comboMult;
@@ -105,7 +110,7 @@ const UI = {
     s.totalLifts++;
     s.dailyClicks++;
     Game.addCoins(earned);
-
+    Game._dirty = true;
     // Mr. DUMB animasyonu — skin-aware
     UI.dumbFrame = (UI.dumbFrame + 1) % 2;
     const img = document.getElementById('dumbImg');
@@ -129,8 +134,36 @@ const UI = {
     }
 
     const label = comboMult > 1 ? '+' + formatNum(earned) + ' x' + comboMult : '+' + formatNum(earned);
-    UI.spawnClickPop(cx, cy, label);
+    UI.spawnClickPop(cx, cy, label, s.comboCount);
     UI.spawnParticles(cx, cy, Math.min(4 + Math.floor(s.comboCount / 5), 10));
+
+    // Ekran sarsintisi
+    const gym = document.getElementById('gymView');
+    const shakeClass = s.comboCount >= 20 ? 'shake-heavy' : s.comboCount >= 10 ? 'shake-medium' : 'shake-light';
+    gym.classList.remove('shake-light', 'shake-medium', 'shake-heavy');
+    void gym.offsetWidth;
+    gym.classList.add(shakeClass);
+    clearTimeout(gym._shakeT);
+    gym._shakeT = setTimeout(function(){ gym.classList.remove(shakeClass); }, 200);
+
+    // Impact ring (combo 5+)
+    if (s.comboCount >= 5) {
+      UI.spawnImpactRing(cx, cy);
+    }
+
+    // Boks torbasi sallanma animasyonu - combo gucune gore
+    const bag = document.getElementById('punchBag');
+    if (bag) {
+      const isHard = s.comboCount >= 15;
+      const swingClass = s.comboCount % 2 === 0
+        ? (isHard ? 'swing-hard' : 'swing')
+        : (isHard ? 'swing-back-hard' : 'swing-back');
+      bag.classList.remove('swing', 'swing-back', 'swing-hard', 'swing-back-hard');
+      void bag.offsetWidth;
+      bag.classList.add(swingClass);
+      clearTimeout(bag._swT);
+      bag._swT = setTimeout(function(){ bag.className = "punching-bag"; }, isHard ? 700 : 600);
+    }
     
     // Ses
     if (s.comboCount >= 10) SFX.clickCombo(s.comboCount);
@@ -144,20 +177,38 @@ const UI = {
     UI.updateStats();
   },
 
-  // BUG FIX: Performans - element sayısı sınırlaması
-  spawnClickPop(x, y, text) {
+  // ==================== CLICK POP — Basit yukari suzulme ====================
+  spawnClickPop(x, y, text, combo) {
     if (this._activePopCount >= MAX_CLICK_POPS) return;
     this._activePopCount++;
-    const el = document.createElement('div');
-    el.className = 'click-pop';
-    el.textContent = text;
-    el.style.left = (x - 20) + 'px';
-    el.style.top = (y - 25) + 'px';
-    document.getElementById('gymView').appendChild(el);
+    const el = this._popPool.length > 0 ? this._popPool.pop() : document.createElement("div");
+    combo = combo || 0;
+    let tier = "pop-normal", prefix = "", dur = 900;
+    const wE=["\ud83d\udcaa","\ud83d\udc4a","\u2b50"];
+    const hE=["\u26a1","\ud83d\udd25","\ud83d\udca2"];
+    const fE=["\ud83d\udd25\ud83d\udd25","\ud83d\udca5","\u2620"];
+    const uE=["\ud83d\udca5\ud83d\udca5","\ud83d\udc51","\ud83c\udf0a","\u2604"];
+    const pick=a=>a[Math.floor(Math.random()*a.length)];
+    if(combo>=50){tier="pop-ultra";prefix=pick(uE)+" ";dur=1350;}
+    else if(combo>=25){tier="pop-fire";prefix=pick(fE)+" ";dur=1200;}
+    else if(combo>=10){tier="pop-hot";prefix=pick(hE)+" ";dur=1100;}
+    else if(combo>=5){tier="pop-warm";prefix=pick(wE)+" ";dur=1000;}
+    el.className="click-pop "+tier;
+    el.textContent=prefix+text;
+    // Rastgele yatay dagilim, animasyon sadece yukari cikiyor
+    const offsetX = (Math.random() - 0.5) * 160;
+    el.style.left = (x - 25 + offsetX) + "px";
+    el.style.top = (y - 20) + "px";
+    // FIX: Pool'dan gelen element'te animasyonu resetle — yoksa sabit kalıyor
+    el.style.animation = "none";
+    document.getElementById("gymView").appendChild(el);
+    void el.offsetWidth; // reflow zorla
+    el.style.animation = ""; // CSS'teki animasyon başlar
     setTimeout(() => {
       el.remove();
       this._activePopCount--;
-    }, 700);
+      if (this._popPool.length < MAX_CLICK_POPS) this._popPool.push(el);
+    }, dur);
   },
 
   spawnParticles(x, y, count) {
@@ -165,32 +216,50 @@ const UI = {
     const actualCount = Math.min(count, available);
     if (actualCount <= 0) return;
 
-    const colors = ['#FFD700', '#FF4444', '#FF8800', '#00FF66'];
+    const colors = ['#FFD700', '#FF4444', '#FF8800', '#00FF66', '#FF66AA', '#FFDD44'];
+    const shapes = ['', 'star', 'spark']; // CSS class varyasyonu
     for (let i = 0; i < actualCount; i++) {
       this._activeParticles++;
       const p = document.createElement('div');
-      p.className = 'click-particle';
+      const shape = shapes[Math.floor(Math.random() * shapes.length)];
+      p.className = 'click-particle' + (shape ? ' ' + shape : '');
       p.style.left = x + 'px';
       p.style.top = y + 'px';
-      p.style.background = colors[i % 4];
-      p.style.setProperty('--px', (Math.random() - 0.5) * 70 + 'px');
-      p.style.setProperty('--py', (Math.random() * -50 - 15) + 'px');
+      p.style.background = colors[Math.floor(Math.random() * colors.length)];
+      // Daha genis dagilim
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 30 + Math.random() * 50;
+      p.style.setProperty('--px', Math.cos(angle) * dist + 'px');
+      p.style.setProperty('--py', Math.sin(angle) * dist - 20 + 'px');
       document.getElementById('gymView').appendChild(p);
       setTimeout(() => {
         p.remove();
         this._activeParticles--;
-      }, 500);
+      }, 550);
     }
+  },
+
+  // Impact ring efekti
+  spawnImpactRing(x, y) {
+    const ring = document.createElement('div');
+    ring.className = 'impact-ring';
+    ring.style.left = x + 'px';
+    ring.style.top = y + 'px';
+    document.getElementById('gymView').appendChild(ring);
+    setTimeout(() => ring.remove(), 400);
   },
 
   showIdlePop() {
     if (Game.state.perSecond <= 0) return;
-    const el = document.createElement('div');
+    var container = document.getElementById('gymView');
+    if (container.querySelectorAll('.idle-pop').length >= 3) return;
+    var el = document.createElement('div');
     el.className = 'idle-pop';
     el.textContent = '+' + formatNum(Game.state.perSecond) + '/s';
-    el.style.top = (120 + Math.random() * 80) + 'px';
-    document.getElementById('gymView').appendChild(el);
-    setTimeout(() => el.remove(), 2000);
+    el.style.top = (100 + Math.random() * 120) + 'px';
+    el.style.right = (10 + Math.floor(Math.random() * 30)) + 'px';
+    container.appendChild(el);
+    setTimeout(function(){ el.remove(); }, 2200);
   },
 
   // ==================== BEAR ATTACKS ====================
@@ -224,13 +293,16 @@ const UI = {
     document.getElementById('bearImg').style.width = def.size;
     document.getElementById('bearHpFill').style.width = '100%';
 
-    const reward = Game.state.clickPower * def.rewardMult;
-    document.getElementById('bearReward').textContent = 'Reward: ' + formatNum(reward) + ' coins';
+    // FIX: Reward başlangıçta sabitlenir, clickPower sonra değişebilir
+    this.bear.reward = Game.state.clickPower * def.rewardMult;
+    document.getElementById('bearReward').textContent = 'Reward: ' + formatNum(this.bear.reward) + ' coins';
 
     document.getElementById('bearImg').onclick = () => UI.hitBear();
     SFX.bearAttack();
 
-    clearInterval(this.bear.interval);
+    // FIX: Önceki interval'ı temizle ve null'la, sonra yenisini başlat
+    if (this.bear.interval) clearInterval(this.bear.interval);
+    this.bear._paused = false;
     this.bear.interval = setInterval(() => {
       this.bear.timer--;
       document.getElementById('bearTimer').textContent = this.bear.timer + 's left';
@@ -262,12 +334,15 @@ const UI = {
 
     if (this.bear.hp <= 0) {
       this.bear.active = false;
+      this.bear._paused = false; // FIX: _paused flag'i sıfırla
       clearInterval(this.bear.interval);
+      this.bear.interval = null;
 
       const def = BEARS[this.bear.type];
       img.src = 'assets/' + def.ko + '.png';
 
-      const reward = Game.state.clickPower * def.rewardMult;
+      // FIX: Sabitlenmiş reward kullan
+      const reward = this.bear.reward || (Game.state.clickPower * def.rewardMult);
       Game.addCoins(reward);
       Game.state.bearKills++;
       Game.state.dailyBears++;
@@ -285,7 +360,9 @@ const UI = {
 
   bearEscape() {
     this.bear.active = false;
+    this.bear._paused = false; // FIX: _paused flag'i sıfırla, yoksa sonraki bear'da sorun çıkar
     clearInterval(this.bear.interval);
+    this.bear.interval = null;
     document.getElementById('bearAttack').classList.remove('active');
     this.toast('🐻 Bear escaped!');
     SFX.bearEscape();
@@ -544,10 +621,34 @@ const UI = {
     panel.innerHTML = html;
   },
 
+  // ==================== SHOP LIGHTWEIGHT UPDATE (FIX: DOM thrashing) ====================
+  updateShopPrices() {
+    if (this.currentTab !== 'shop') return;
+    const items = document.querySelectorAll('.shop-item');
+    if (items.length === 0) { this.renderShop(); return; }
+    items.forEach(el => {
+      const id = el.dataset.id;
+      const u = UPGRADES.find(x => x.id === id);
+      if (!u) return;
+      const owned = Game.getOwned(u.id);
+      const maxed = owned >= u.max;
+      const cost = Game.getUpgradeCost(u);
+      const canBuy = !maxed && Game.state.coins >= cost;
+      el.classList.toggle('affordable', canBuy);
+    });
+    const any = UPGRADES.some(u => Game.state.coins >= Game.getUpgradeCost(u) && Game.getOwned(u.id) < u.max);
+    document.getElementById('shopNotif').style.display = any ? 'block' : 'none';
+  },
+
   // ==================== TABS ====================
   switchTab(tab) {
     this.currentTab = tab;
-    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+    document.querySelectorAll('.tab').forEach(t => {
+      const isActive = t.dataset.tab === tab;
+      t.classList.toggle('active', isActive);
+      // FIX: Accessibility — aria-selected güncelle
+      t.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    });
     document.getElementById('gymView').style.display = tab === 'gym' ? 'flex' : 'none';
     document.getElementById('shopPanel').classList.toggle('active', tab === 'shop');
     document.getElementById('msPanel').classList.toggle('active', tab === 'ms');
@@ -556,10 +657,12 @@ const UI = {
 
     // Bear timer'ı tab geçişinde duraklat/devam ettir
     if (tab !== 'gym' && this.bear.active && !this.bear._paused) {
-      clearInterval(this.bear.interval);
+      if (this.bear.interval) clearInterval(this.bear.interval);
+      this.bear.interval = null;
       this.bear._paused = true;
     } else if (tab === 'gym' && this.bear._paused && this.bear.active) {
       this.bear._paused = false;
+      if (this.bear.interval) clearInterval(this.bear.interval); // FIX: Önceki interval'ı temizle
       this.bear.interval = setInterval(() => {
         this.bear.timer--;
         document.getElementById('bearTimer').textContent = this.bear.timer + 's left';
@@ -577,10 +680,10 @@ const UI = {
   // BUG FIX: Toast sayısı sınırlaması
   toast(msg) {
     if (this._activeToasts >= MAX_TOASTS) {
-      // En eski toast'u sil
       const oldest = document.querySelector('.toast');
       if (oldest) {
-        oldest.remove();
+        oldest.classList.add('toast-exit');
+        setTimeout(() => { oldest.remove(); }, 200);
         this._activeToasts--;
       }
     }
@@ -588,13 +691,21 @@ const UI = {
     const el = document.createElement('div');
     el.className = 'toast';
     el.textContent = msg;
-    // YENİ: Çoklu toast pozisyon ayarı
     el.style.top = (15 + (this._activeToasts - 1) * 42) + 'px';
     document.body.appendChild(el);
+    // Mevcut toastlarin pozisyonunu guncelle
+    const toasts = document.querySelectorAll('.toast:not(.toast-exit)');
+    toasts.forEach((t, i) => { t.style.top = (15 + i * 42) + 'px'; });
     setTimeout(() => {
-      el.remove();
-      this._activeToasts = Math.max(0, this._activeToasts - 1);
-    }, 2200);
+      el.classList.add('toast-exit');
+      setTimeout(() => {
+        el.remove();
+        this._activeToasts = Math.max(0, this._activeToasts - 1);
+        // Kalan toastlari yukari kaydir
+        const remaining = document.querySelectorAll('.toast:not(.toast-exit)');
+        remaining.forEach((t, i) => { t.style.top = (15 + i * 42) + 'px'; });
+      }, 200);
+    }, 2000);
   },
 
   // ==================== MODAL HELPERS ====================

@@ -11,6 +11,15 @@
   UI.updateStats();
   UI.renderShop();
 
+  // ==================== SES TERCİHİ YÜKLE (FIX) ====================
+  try {
+    const soundPref = localStorage.getItem('dumbgym_sound');
+    if (soundPref === '0') {
+      SFX.enabled = false;
+      document.getElementById('soundBtn').textContent = '🔇';
+    }
+  } catch(e) {}
+
   // ==================== SKIN BAŞLAT ====================
   const activeSkin = SkinSystem.getActive();
   document.getElementById('dumbImg').src = activeSkin.idle;
@@ -83,6 +92,9 @@
     const dt = (now - lastTick) / 1000;
     lastTick = now;
 
+    // FIX: Cloud sync sırasında tick'leri duraklat — state tutarsızlığını önle
+    if (Game._syncLock) return;
+
     // dt güvenlik kontrolü (tab değiştirme vb. uzun bekleme)
     const safeDt = Math.min(dt, 2); // Maksimum 2 saniyelik tick
 
@@ -94,6 +106,8 @@
         Game.addCoins(earned);
         Game.state.totalLifts += earned;
         UI.idleAccumulator += earned;
+        Game.checkLevel();
+        Game.checkMilestones();
       }
     }
 
@@ -103,9 +117,17 @@
       UI.idleAccumulator = 0;
     }
 
-    Game.checkLevel();
-    Game.checkMilestones();
-    UI.updateStats();
+    // FIX: Dirty flag — sadece değişiklik olduğunda UI güncelle, 250ms'de boşuna DOM yazma
+    if (Game._dirty) {
+      UI.updateStats();
+      Game._dirty = false;
+    } else {
+      // Boost timer gibi zamana bağlı göstergeler hâlâ güncellenmeli
+      const s = Game.state;
+      if (s.boostUntil && Date.now() < s.boostUntil) {
+        UI.updateStats(); // Boost countdown devam ederken güncelle
+      }
+    }
   }
 
   setInterval(gameTick, GAME_TICK_INTERVAL);
@@ -119,11 +141,14 @@
   // ==================== SHOP OTOMATİK YENİLEME (3sn) ====================
   // BUG FIX: 2sn'den 3sn'ye çıkarıldı - gereksiz DOM thrashing önlendi
   setInterval(function () {
-    if (UI.currentTab === 'shop') UI.renderShop();
+    if (Game._syncLock) return; // FIX: Sync sırasında shop güncelleme
+    if (UI.currentTab === 'shop') UI.updateShopPrices(); // FIX: lightweight update
   }, 3000);
 
   // ==================== BEAR ATTACK ZAMANLAYICISI ====================
   setInterval(function () {
+    // FIX: Sync sırasında bear saldırması başlatma
+    if (Game._syncLock) return;
     if (!UI.bear.active && UI.currentTab === 'gym' && Game.state.totalClicks > 15) {
       if (Math.random() < BEAR_BASE_CHANCE) UI.startBearAttack();
     }

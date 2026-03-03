@@ -6,7 +6,9 @@
 const CA = '8DodKZzn1PnbmiJTKhavVxqpsTMiepHSuqwTKnDSpump';
 
 /* ---- Sabitler ---- */
-const COMBO_WINDOW_MS = 400;
+// FIX: Mobilde touch latency yüzünden combo window genişletildi
+const IS_MOBILE = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+const COMBO_WINDOW_MS = IS_MOBILE ? 550 : 400;
 const COMBO_DISPLAY_MS = 800;
 const MAX_COMBO = 50;
 const BEAR_CHECK_INTERVAL = 15000;
@@ -108,6 +110,17 @@ const LUCKY_PRIZES = [
   { weight: 5,  text: '🏆 JACKPOT! +{x}!',       calc: () => Game.state.clickPower * 600 },
 ];
 
+// FIX: Kümülatif ağırlık — her spin'de array oluşturmak yerine O(1) seçim
+const LUCKY_TOTAL_WEIGHT = LUCKY_PRIZES.reduce((s, p) => s + p.weight, 0);
+function pickLuckyPrize() {
+  let roll = Math.random() * LUCKY_TOTAL_WEIGHT;
+  for (let i = 0; i < LUCKY_PRIZES.length; i++) {
+    roll -= LUCKY_PRIZES[i].weight;
+    if (roll < 0) return LUCKY_PRIZES[i];
+  }
+  return LUCKY_PRIZES[LUCKY_PRIZES.length - 1];
+}
+
 /* ---- Daily Challenge — hedefler yükseltildi ---- */
 const DAILY_CHALLENGES = [
   { id: 'dc_click', name: 'Click Frenzy',  desc: 'Click {t} times today',  type: 'clicks', targets: [200, 500, 1000, 2000] },
@@ -138,11 +151,12 @@ function formatTime(seconds) {
   return m + 'm';
 }
 
+// FIX: Tek div reuse — her çağrıda yeni element oluşturmayı önler
+const _escapeDiv = document.createElement('div');
 function escapeHtml(str) {
   if (typeof str !== 'string') return '';
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
+  _escapeDiv.textContent = str;
+  return _escapeDiv.innerHTML;
 }
 
 const LIMITS = {

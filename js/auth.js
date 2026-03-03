@@ -161,14 +161,19 @@ const Auth = {
   showProfile() {
     const msg = document.getElementById('walletMsg');
     const u = this.user;
+    // FIX: Tüm alanları escape et — sadece name değil
+    const safeName = escapeHtml(u.name);
+    const safeUsername = u.username ? escapeHtml(u.username) : '';
+    const safeMethod = escapeHtml(u.method);
+    const safeId = escapeHtml(u.id).slice(0, 24);
     msg.innerHTML =
       '<div style="text-align:center">' +
       '<div style="font-size:40px;margin-bottom:8px">' + u.avatar + '</div>' +
-      '<div style="font-size:20px;font-weight:900;color:var(--gold)">' + escapeHtml(u.name) + '</div>' +
-      (u.username ? '<div style="font-size:12px;color:#888">' + escapeHtml(u.username) + '</div>' : '') +
-      '<div style="font-size:11px;color:#555;margin-top:4px">Login: ' + escapeHtml(u.method) + '</div>' +
-      '<div style="font-size:10px;color:#444;margin-top:2px">ID: ' + escapeHtml(u.id).slice(0, 24) + '</div>' +
-      (Game.state.walletAddr ? '<div style="font-size:11px;color:var(--green);margin-top:4px">🔗 ' + Game.state.walletAddr.slice(0,6) + '...' + Game.state.walletAddr.slice(-4) + '</div>' : '') +
+      '<div style="font-size:20px;font-weight:900;color:var(--gold)">' + safeName + '</div>' +
+      (safeUsername ? '<div style="font-size:12px;color:#888">' + safeUsername + '</div>' : '') +
+      '<div style="font-size:11px;color:#555;margin-top:4px">Login: ' + safeMethod + '</div>' +
+      '<div style="font-size:10px;color:#444;margin-top:2px">ID: ' + safeId + '</div>' +
+      (Game.state.walletAddr ? '<div style="font-size:11px;color:var(--green);margin-top:4px">🔗 ' + escapeHtml(Game.state.walletAddr.slice(0,6)) + '...' + escapeHtml(Game.state.walletAddr.slice(-4)) + '</div>' : '') +
       '<div style="font-size:10px;color:#336633;margin-top:6px">☁️ Cloud save: ' + (Leaderboard.isOnline() ? 'Active' : 'Offline') + '</div>' +
       '<div style="margin-top:12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">' +
       (!Game.state.walletAddr ? '<button onclick="document.getElementById(\'walletModal\').classList.remove(\'show\');Wallet.connect()" style="font-size:12px;padding:6px 14px;border:1px solid var(--purple);background:transparent;color:var(--purple);cursor:pointer;border-radius:6px">Link Wallet</button>' : '') +

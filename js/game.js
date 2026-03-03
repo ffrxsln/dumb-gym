@@ -46,6 +46,7 @@ const Game = {
       dailyChallengeIdx: 0, // Aktif challenge index
       dailyChallengeLevel: 0, // 0-3 (easy-insane)
       dailyChallengeComplete: false,
+      dailyMaxCombo: 0,        // FIX: Günlük combo takibi
       // YENİ: İstatistikler
       totalBearBossKills: 0,
       highestLevel: 1,
@@ -58,9 +59,12 @@ const Game = {
   },
 
   state: null,
+  _dirty: false,       // FIX: Dirty flag — sadece değişiklik olduğunda UI güncelle
+  _syncLock: false,     // FIX: Cloud sync sırasında tick'leri duraklat
 
   init() {
     this.state = this._defaultState();
+    this._dirty = true;
   },
 
   /* ---- Upgrade Maliyeti ---- */
@@ -112,13 +116,14 @@ const Game = {
   },
 
   /* ---- Coin Ekle ---- */
-  addCoins(n) {
+  addCoins(n, isOffline) {
     if (typeof n !== 'number' || isNaN(n) || n < 0) return;
     n = Math.floor(n);
     this.state.coins = Math.min(this.state.coins + n, LIMITS.maxCoins);
     this.state.totalCoins = Math.min(this.state.totalCoins + n, LIMITS.maxCoins);
     this.state.sessionCoins += n;
-    this.state.dailyCoins += n;
+    if (!isOffline) this.state.dailyCoins += n; // FIX: Offline kazanç günlük sayaca eklenmez
+    this._dirty = true;
   },
 
   /* ---- Level Kontrolü ---- */
@@ -165,36 +170,12 @@ const Game = {
     this.state.dailyBuys++;
     this.state.totalUpgradesBought++;
     this.calcStats();
+    this._dirty = true;
     SFX.buy();
     UI.renderShop();
     UI.updateStats();
     this.checkDailyChallenge();
     this.save();
-  },
-
-  /* ---- 10x Satın Al (YENİ) ---- */
-  buyUpgradeMax(id) {
-    const u = UPGRADES.find(x => x.id === id);
-    if (!u) return;
-    let bought = 0;
-    for (let i = 0; i < 10; i++) {
-      const cost = this.getUpgradeCost(u);
-      const owned = this.getOwned(u.id);
-      if (this.state.coins < cost || owned >= u.max) break;
-      this.state.coins -= cost;
-      this.state.upgrades[u.id] = owned + 1;
-      bought++;
-    }
-    if (bought > 0) {
-      this.state.dailyBuys += bought;
-      this.state.totalUpgradesBought += bought;
-      this.calcStats();
-      SFX.buy();
-      UI.renderShop();
-      UI.updateStats();
-      this.checkDailyChallenge();
-      this.save();
-    }
   },
 
   /* ---- N adet satın al ---- */
@@ -215,6 +196,7 @@ const Game = {
       this.state.dailyBuys += bought;
       this.state.totalUpgradesBought += bought;
       this.calcStats();
+      this._dirty = true;
       SFX.buy();
       UI.renderShop();
       UI.updateStats();
@@ -268,6 +250,7 @@ const Game = {
     // Daily sayaçlar korunuyor
 
     this.calcStats();
+    this._dirty = true;
     SFX.prestige();
     UI.toast('⭐ PRESTIGE ' + this.state.prestige + '! x' + this.state.prestigeMult.toFixed(1));
     UI.switchTab('gym');
@@ -298,10 +281,8 @@ const Game = {
     this.state.totalSpins++;
     SFX.spin();
 
-    // Ağırlıklı havuz oluştur
-    const pool = [];
-    LUCKY_PRIZES.forEach(p => { for (let i = 0; i < p.weight; i++) pool.push(p); });
-    const pick = pool[Math.floor(Math.random() * pool.length)];
+    // FIX: Kümülatif ağırlık ile O(1) seçim — eski pool array kaldırıldı
+    const pick = pickLuckyPrize();
     const val = pick.calc();
 
     const resultEl = document.getElementById('luckyResult');
@@ -380,6 +361,7 @@ const Game = {
       this.state.dailyCoins = 0;
       this.state.dailyBears = 0;
       this.state.dailyBuys = 0;
+      this.state.dailyMaxCombo = 0;
       // Deterministik challenge seçimi (günlük seed)
       const seed = today.replace(/-/g, '');
       this.state.dailyChallengeIdx = parseInt(seed) % DAILY_CHALLENGES.length;
@@ -398,7 +380,7 @@ const Game = {
       case 'clicks': current = this.state.dailyClicks; break;
       case 'coins':  current = this.state.dailyCoins; break;
       case 'bears':  current = this.state.dailyBears; break;
-      case 'combo':  current = this.state.maxCombo || 0; break;
+      case 'combo':  current = this.state.dailyMaxCombo || 0; break;
       case 'buys':   current = this.state.dailyBuys; break;
     }
     return {
@@ -500,7 +482,9 @@ const Game = {
       this.state.bearKills = clampValue(this.state.bearKills, 0, LIMITS.maxBearKills);
 
       // sessionCoins tutarlılık kontrolü
-      if (this.state.level > 1) {
+      // FIX: Prestige sonrası level 1'e dönülür, sessionCoins 0 olur — bu durumu koru
+      // Sadece level > 1 VE sessionCoins mantıksız düşükse düzelt
+      if (this.state.level > 1 && this.state.sessionCoins > 0) {
         const expectedMin = this.getLevelThreshold(this.state.level - 1);
         if (this.state.sessionCoins < expectedMin * 0.5) {
           this.state.sessionCoins = expectedMin;
@@ -515,7 +499,7 @@ const Game = {
         const maxAway = Math.min(awaySec, OFFLINE_CAP_SECONDS);
         const earned = Math.floor(this.state.perSecond * maxAway * OFFLINE_EFFICIENCY);
         if (earned > 0) {
-          this.addCoins(earned);
+          this.addCoins(earned, true); // FIX: isOffline=true - günlük challenge'ı etkilemesin
           document.getElementById('offlineDur').textContent = 'You were away for ' + formatTime(awaySec);
           document.getElementById('offlineAmt').textContent = '+' + formatNum(earned);
           document.getElementById('offlineModal').classList.add('show');
