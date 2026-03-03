@@ -8,6 +8,8 @@ const CloudSave = {
   _debounce: null,
   _saving: false,
   _lastCloud: 0,
+  _firstPending: 0,     // FIX: Debounce starvation - ilk bekleyen save zamani
+  MAX_DEBOUNCE_WAIT: 30000, // FIX: Maksimum 30sn bekle, sonra zorla kaydet
   SYNC_INTERVAL: 30000, // 30 saniye
 
   /* ---- Supabase bağlantı bilgileri (Leaderboard ile aynı) ---- */
@@ -25,8 +27,17 @@ const CloudSave = {
   /* ---- Cloud'a kaydet (debounced) ---- */
   save() {
     if (!Auth.user || !Leaderboard.isOnline()) return;
+    // FIX: Debounce starvation onleme - surekli tetiklenirse max sure sonunda zorla kaydet
+    if (!this._firstPending) this._firstPending = Date.now();
+    if (Date.now() - this._firstPending >= this.MAX_DEBOUNCE_WAIT) {
+      if (this._debounce) clearTimeout(this._debounce);
+      this._debounce = null;
+      this._firstPending = 0;
+      this._doSave();
+      return;
+    }
     if (this._debounce) clearTimeout(this._debounce);
-    this._debounce = setTimeout(() => this._doSave(), 5000);
+    this._debounce = setTimeout(() => { this._firstPending = 0; this._doSave(); }, 5000);
   },
 
   /* ---- Gerçek kayıt ---- */
