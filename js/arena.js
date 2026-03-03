@@ -210,6 +210,7 @@ const Arena = {
 
     Game.state.arenaFights = (Game.state.arenaFights || 0) + 1;
     Game.save();
+    Game.checkMilestones();
     this._renderFightResult();
   },
 
@@ -242,7 +243,10 @@ const Arena = {
     html += '</div>';
 
     if (!canFight) {
-      html += '<div class="arena-cooldown">⏳ Next fight in ' + cooldown + 's</div>';
+      html += '<div class="arena-cooldown" id="arenaCooldownText">⏳ Next fight in ' + cooldown + 's</div>';
+      this._startCooldownTimer();
+    } else {
+      this._stopCooldownTimer();
     }
 
     // Rakip kartlari
@@ -363,6 +367,35 @@ const Arena = {
     container.innerHTML = html;
   },
 
+  /* ==================== COOLDOWN TIMER ==================== */
+  _cooldownInterval: null,
+
+  _startCooldownTimer() {
+    this._stopCooldownTimer();
+    this._cooldownInterval = setInterval(() => {
+      const remaining = Math.max(0, Math.ceil((this.COOLDOWN - (Date.now() - this._lastFight)) / 1000));
+      const el = document.getElementById('arenaCooldownText');
+      if (el) {
+        if (remaining <= 0) {
+          el.textContent = '✅ Ready to fight!';
+          el.style.color = '#44DD66';
+          this._stopCooldownTimer();
+        } else {
+          el.textContent = '⏳ Next fight in ' + remaining + 's';
+        }
+      } else {
+        this._stopCooldownTimer();
+      }
+    }, 1000);
+  },
+
+  _stopCooldownTimer() {
+    if (this._cooldownInterval) {
+      clearInterval(this._cooldownInterval);
+      this._cooldownInterval = null;
+    }
+  },
+
   /* ==================== MODAL KAPAT ==================== */
   closeModal() {
     if (this._active) {
@@ -372,6 +405,7 @@ const Arena = {
       this._interval = null;
       this._oppAttackInterval = null;
     }
+    this._stopCooldownTimer();
     document.getElementById('arenaModal').classList.remove('show');
   },
 };

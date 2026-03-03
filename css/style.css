@@ -1897,6 +1897,11 @@ body {
   transition: .15s; letter-spacing: 1px;
 }
 .tutorial-btn:hover { transform: scale(1.05); }
+.tutorial-skip {
+  margin-top: 12px; font-size: 11px; color: #555; cursor: pointer;
+  text-decoration: underline; transition: color .15s;
+}
+.tutorial-skip:hover { color: #999; }
 .tutorial-highlight {
   position: relative; z-index: 10000;
   animation: tutorialGlow 1s ease-in-out infinite alternate;
