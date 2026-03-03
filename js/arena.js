@@ -27,6 +27,13 @@ const Arena = {
   _oppAttackTimeout: null,
   _result: null,
   _cachedOpponents: [],
+  _combo: 0,
+  _comboTimer: null,
+  _totalDmgDealt: 0,
+  _totalDmgTaken: 0,
+  _maxCombo: 0,
+  _hitsTaken: 0,
+  _hitsDealt: 0,
 
   /* ==================== BOT URETIMI ==================== */
   _generateBot(level) {
@@ -103,9 +110,14 @@ const Arena = {
       return;
     }
 
-    this._active = true;
     this._opponent = opponent;
     this._result = null;
+    this._combo = 0;
+    this._maxCombo = 0;
+    this._totalDmgDealt = 0;
+    this._totalDmgTaken = 0;
+    this._hitsTaken = 0;
+    this._hitsDealt = 0;
 
     const oppStats = this._calcOpponentStats(opponent);
     const playerStats = this._calcPlayerStats();
@@ -118,13 +130,52 @@ const Arena = {
     this._timer = this.FIGHT_DURATION;
 
     this._renderFight();
-    SFX.bearAttack();
+    // Dovus sirasinda header'i gizle — daha fazla alan
+    const header = document.querySelector('.arena-modal-header');
+    if (header) header.style.display = 'none';
+    this._runCountdown();
+  },
+
+  /* ==================== 3-2-1 FIGHT COUNTDOWN ==================== */
+  _runCountdown() {
+    const area = document.getElementById('arenaFightArea');
+    if (!area) { this._beginFight(); return; }
+
+    let count = 3;
+    const showNum = () => {
+      const old = area.querySelector('.arena-countdown');
+      if (old) old.remove();
+
+      const div = document.createElement('div');
+      div.className = 'arena-countdown';
+
+      if (count > 0) {
+        div.innerHTML = '<span class="arena-countdown-num">' + count + '</span>';
+        SFX.click();
+        area.appendChild(div);
+        count--;
+        setTimeout(showNum, 650);
+      } else {
+        div.innerHTML = '<span class="arena-countdown-fight">FIGHT!</span>';
+        SFX.bearAttack();
+        area.appendChild(div);
+        setTimeout(() => { div.remove(); this._beginFight(); }, 500);
+      }
+    };
+    showNum();
+  },
+
+  /* ==================== DOVUSU BASLAT (countdown sonrasi) ==================== */
+  _beginFight() {
+    this._active = true;
 
     // Rakip otomatik saldiri — degisken hizda, agresif
     this._oppAttackTick = () => {
       if (!this._active) return;
 
       SFX.oppHitPlayer();
+      this._hitsTaken++;
+      this._totalDmgTaken += this._oppDps;
 
       this._playerHp -= this._oppDps;
       this._updateFightUI();
@@ -148,9 +199,14 @@ const Arena = {
       // Rakip vurus animasyonu — one atilsin
       const oppImg = document.getElementById('arenaOppImg');
       if (oppImg) {
-        oppImg.style.transform = 'scaleX(-1) translateX(12px) scale(1.08)';
-        setTimeout(() => { oppImg.style.transform = ''; }, 120);
+        oppImg.style.transform = 'scaleX(-1) translateX(14px) scale(1.1)';
+        setTimeout(() => { oppImg.style.transform = ''; }, 130);
       }
+
+      // Combo kirilsin — bize vurulunca combo resetlenir
+      this._combo = 0;
+      const comboEl = document.getElementById('arenaCombo');
+      if (comboEl) comboEl.remove();
 
       // Oyuncu tarafina hasar pop
       const playerFighter = document.getElementById('arenaPlayerFighter');
@@ -158,20 +214,23 @@ const Arena = {
         const pop = document.createElement('div');
         pop.className = 'arena-dmg-pop-player';
         pop.textContent = '-' + this._oppDps;
-        pop.style.left = (30 + Math.random() * 40) + '%';
-        pop.style.top = (15 + Math.random() * 25) + '%';
+        pop.style.left = (25 + Math.random() * 50) + '%';
+        pop.style.top = (10 + Math.random() * 30) + '%';
         playerFighter.appendChild(pop);
         setTimeout(() => pop.remove(), 700);
       }
 
+      // Screen flash on hit
+      this._screenFlash();
+
       if (this._playerHp <= 0) { this._endFight(false); return; }
 
-      // Sonraki vurus: 600-1100ms arasi rastgele — bazen hizli patlatiyor
-      const nextDelay = 600 + Math.floor(Math.random() * 500);
+      // Sonraki vurus: 550-1050ms arasi rastgele
+      const nextDelay = 550 + Math.floor(Math.random() * 500);
       this._oppAttackTimeout = setTimeout(this._oppAttackTick, nextDelay);
     };
-    // Ilk vurus 800ms sonra
-    this._oppAttackTimeout = setTimeout(this._oppAttackTick, 800);
+    // Ilk vurus 700ms sonra
+    this._oppAttackTimeout = setTimeout(this._oppAttackTick, 700);
 
     // Geri sayim
     this._interval = setInterval(() => {
@@ -185,10 +244,25 @@ const Arena = {
     }, 1000);
   },
 
+  /* ==================== SCREEN FLASH ==================== */
+  _screenFlash() {
+    const flash = document.createElement('div');
+    flash.className = 'arena-screen-flash';
+    document.body.appendChild(flash);
+    setTimeout(() => flash.remove(), 150);
+  },
+
   /* ==================== OYUNCU SALDIRISI ==================== */
   hitOpponent() {
     if (!this._active) return;
     SFX.bearHit();
+    this._hitsDealt++;
+
+    // Combo sistemi — her vurusta artiyor, rakip vurduğunda resetleniyor
+    this._combo++;
+    if (this._combo > this._maxCombo) this._maxCombo = this._combo;
+    clearTimeout(this._comboTimer);
+    this._comboTimer = setTimeout(() => { this._combo = 0; this._updateComboUI(); }, 2000);
 
     const cp = Game.state.clickPower;
     let dmg = Math.max(1, Math.floor(Math.pow(cp, 0.4) + cp * 0.01 + 1));
@@ -199,29 +273,63 @@ const Arena = {
       if (bonus.bearDmgMult) dmg = Math.floor(dmg * bonus.bearDmgMult);
     }
 
-    this._oppHp -= dmg;
-    this._updateFightUI();
+    // Combo bonus: her 5 comboda %20 ekstra hasar
+    const comboMult = 1 + Math.floor(this._combo / 5) * 0.2;
+    const isCrit = this._combo > 0 && this._combo % 5 === 0;
+    dmg = Math.floor(dmg * comboMult);
 
-    // Vurus animasyonu — rakip scale + flip koruyarak
+    this._oppHp -= dmg;
+    this._totalDmgDealt += dmg;
+    this._updateFightUI();
+    this._updateComboUI();
+
+    // Vurus animasyonu
     const img = document.getElementById('arenaOppImg');
     if (img) {
-      img.style.transform = 'scaleX(-1) scale(.82)';
-      setTimeout(() => { img.style.transform = ''; }, 80);
+      img.classList.remove('arena-opp-combo-hit');
+      void img.offsetWidth;
+      img.classList.add('arena-opp-combo-hit');
+      setTimeout(() => img.classList.remove('arena-opp-combo-hit'), 150);
     }
 
     // Hasar pop — rakibin ustunde
     const oppFighter = document.getElementById('arenaOppFighter');
     if (oppFighter) {
       const pop = document.createElement('div');
-      pop.className = 'arena-dmg-pop';
-      pop.textContent = '-' + dmg;
-      pop.style.left = (20 + Math.random() * 60) + '%';
-      pop.style.top = (10 + Math.random() * 30) + '%';
+      pop.className = 'arena-dmg-pop' + (isCrit ? ' arena-dmg-crit' : '');
+      pop.textContent = isCrit ? '💥 -' + dmg : '-' + dmg;
+      pop.style.left = (15 + Math.random() * 65) + '%';
+      pop.style.top = (5 + Math.random() * 35) + '%';
       oppFighter.appendChild(pop);
       setTimeout(() => pop.remove(), 700);
+
+      // Crit hit = screen flash
+      if (isCrit) this._screenFlash();
     }
 
     if (this._oppHp <= 0) this._endFight(true);
+  },
+
+  /* ==================== COMBO UI ==================== */
+  _updateComboUI() {
+    let el = document.getElementById('arenaCombo');
+    const oppFighter = document.getElementById('arenaOppFighter');
+    if (this._combo < 2) {
+      if (el) el.remove();
+      return;
+    }
+    if (!el && oppFighter) {
+      el = document.createElement('div');
+      el.className = 'arena-combo';
+      el.id = 'arenaCombo';
+      oppFighter.appendChild(el);
+    }
+    if (el) {
+      el.textContent = this._combo + 'x COMBO';
+      el.style.animation = 'none';
+      void el.offsetWidth;
+      el.style.animation = '';
+    }
   },
 
   /* ==================== DOVUS BITIR ==================== */
@@ -230,6 +338,7 @@ const Arena = {
     this._lastFight = Date.now();
     clearInterval(this._interval);
     clearTimeout(this._oppAttackTimeout);
+    clearTimeout(this._comboTimer);
     this._interval = null;
     this._oppAttackTimeout = null;
 
@@ -250,6 +359,9 @@ const Arena = {
     Game.state.arenaFights = (Game.state.arenaFights || 0) + 1;
     Game.save();
     Game.checkMilestones();
+    // Header'i geri getir
+    const header = document.querySelector('.arena-modal-header');
+    if (header) header.style.display = '';
     this._renderFightResult();
   },
 
@@ -327,9 +439,10 @@ const Arena = {
 
     let html = '<div class="arena-fight" id="arenaFightArea">';
 
-    // Timer
+    // Timer + progress bar
     html += '<div class="arena-timer-bar">';
     html += '<span class="arena-timer" id="arenaTimer">⏱ ' + this._timer + 's</span>';
+    html += '<div class="arena-timer-progress"><div class="arena-timer-fill" id="arenaTimerFill" style="width:100%"></div></div>';
     html += '</div>';
 
     // Dovus alani
@@ -368,12 +481,45 @@ const Arena = {
     const playerHpEl = document.getElementById('arenaPlayerHp');
     const playerText = document.getElementById('arenaPlayerHpText');
     const timerEl = document.getElementById('arenaTimer');
+    const timerFill = document.getElementById('arenaTimerFill');
 
-    if (oppHpEl) oppHpEl.style.width = Math.max(0, (this._oppHp / this._oppMaxHp) * 100) + '%';
+    // Rakip HP
+    const oppPct = Math.max(0, this._oppHp / this._oppMaxHp);
+    if (oppHpEl) {
+      oppHpEl.style.width = (oppPct * 100) + '%';
+      oppHpEl.className = 'arena-hp-fill ' + this._hpColorClass(oppPct);
+    }
     if (oppText) oppText.textContent = Math.max(0, this._oppHp) + '/' + this._oppMaxHp;
-    if (playerHpEl) playerHpEl.style.width = Math.max(0, (this._playerHp / this._playerMaxHp) * 100) + '%';
+
+    // Oyuncu HP
+    const playerPct = Math.max(0, this._playerHp / this._playerMaxHp);
+    if (playerHpEl) {
+      playerHpEl.style.width = (playerPct * 100) + '%';
+      playerHpEl.className = 'arena-hp-fill ' + this._hpColorClass(playerPct);
+    }
     if (playerText) playerText.textContent = Math.max(0, this._playerHp) + '/' + this._playerMaxHp;
-    if (timerEl) timerEl.textContent = '⏱ ' + this._timer + 's';
+
+    // Timer
+    if (timerEl) {
+      timerEl.textContent = '⏱ ' + this._timer + 's';
+      if (this._timer <= 5) {
+        timerEl.classList.add('arena-timer-urgent');
+      } else {
+        timerEl.classList.remove('arena-timer-urgent');
+      }
+    }
+    if (timerFill) {
+      timerFill.style.width = (this._timer / this.FIGHT_DURATION * 100) + '%';
+      if (this._timer <= 5) timerFill.classList.add('urgent');
+      else timerFill.classList.remove('urgent');
+    }
+  },
+
+  /* HP bar renk hesapla */
+  _hpColorClass(pct) {
+    if (pct <= 0.2) return 'arena-hp-critical';
+    if (pct <= 0.5) return 'arena-hp-yellow';
+    return 'arena-hp-green';
   },
 
   /* ==================== SONUC EKRANI ==================== */
@@ -396,8 +542,15 @@ const Arena = {
       html += '<div class="arena-result-sub">Train harder and try again!</div>';
     }
 
+    // Fight stats recap
+    html += '<div class="arena-result-stats">';
+    html += '<span>🎯 ' + this._hitsDealt + ' hits</span>';
+    html += '<span>💥 ' + this._maxCombo + 'x combo</span>';
+    html += '<span>⚔️ ' + this._totalDmgDealt + ' dmg</span>';
+    html += '</div>';
+
     html += '<div class="arena-result-btns">';
-    html += '<button class="arena-btn-primary" onclick="Arena.renderPanel()">BACK TO ARENA</button>';
+    html += '<button class="arena-btn-primary" onclick="Arena.renderPanel()">FIND OPPONENT</button>';
     html += '<button class="arena-btn-secondary" onclick="Arena.closeModal()">CLOSE</button>';
     html += '</div>';
     html += '</div>';
@@ -440,6 +593,7 @@ const Arena = {
       this._active = false;
       clearInterval(this._interval);
       clearTimeout(this._oppAttackTimeout);
+      clearTimeout(this._comboTimer);
       this._interval = null;
       this._oppAttackTimeout = null;
     }
