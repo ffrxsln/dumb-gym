@@ -124,6 +124,7 @@ const Arena = {
       if (!this._active) return;
       this._playerHp -= this._oppDps;
       this._updateFightUI();
+
       // Oyuncu HP bar sarsintisi
       const bar = document.getElementById('arenaPlayerHpBar');
       if (bar) {
@@ -131,6 +132,27 @@ const Arena = {
         void bar.offsetWidth;
         bar.classList.add('arena-hit');
       }
+
+      // Oyuncu karakter sarsintisi
+      const playerImg = document.getElementById('arenaPlayerImg');
+      if (playerImg) {
+        playerImg.classList.remove('arena-player-hit');
+        void playerImg.offsetWidth;
+        playerImg.classList.add('arena-player-hit');
+      }
+
+      // Oyuncu tarafina hasar pop
+      const playerFighter = document.getElementById('arenaPlayerFighter');
+      if (playerFighter) {
+        const pop = document.createElement('div');
+        pop.className = 'arena-dmg-pop-player';
+        pop.textContent = '-' + this._oppDps;
+        pop.style.left = (30 + Math.random() * 40) + '%';
+        pop.style.top = (15 + Math.random() * 25) + '%';
+        playerFighter.appendChild(pop);
+        setTimeout(() => pop.remove(), 700);
+      }
+
       if (this._playerHp <= 0) this._endFight(false);
     }, 1000);
 
@@ -163,22 +185,22 @@ const Arena = {
     this._oppHp -= dmg;
     this._updateFightUI();
 
-    // Vurus animasyonu
+    // Vurus animasyonu — rakip scale + flip koruyarak
     const img = document.getElementById('arenaOppImg');
     if (img) {
-      img.style.transform = 'scale(.82)';
+      img.style.transform = 'scaleX(-1) scale(.82)';
       setTimeout(() => { img.style.transform = ''; }, 80);
     }
 
-    // Hasar pop
-    const fightArea = document.getElementById('arenaFightArea');
-    if (fightArea) {
+    // Hasar pop — rakibin ustunde
+    const oppFighter = document.getElementById('arenaOppFighter');
+    if (oppFighter) {
       const pop = document.createElement('div');
       pop.className = 'arena-dmg-pop';
       pop.textContent = '-' + dmg;
-      pop.style.left = (40 + Math.random() * 20) + '%';
-      pop.style.top = (20 + Math.random() * 20) + '%';
-      fightArea.appendChild(pop);
+      pop.style.left = (20 + Math.random() * 60) + '%';
+      pop.style.top = (10 + Math.random() * 30) + '%';
+      oppFighter.appendChild(pop);
       setTimeout(() => pop.remove(), 700);
     }
 
@@ -297,9 +319,9 @@ const Arena = {
     html += '<div class="arena-fighters">';
 
     // Oyuncu (sol)
-    html += '<div class="arena-fighter">';
+    html += '<div class="arena-fighter" id="arenaPlayerFighter">';
     html += '<div class="arena-fighter-name" style="color:var(--gold)">' + escapeHtml(Auth.getDisplayName()) + '</div>';
-    html += '<img class="arena-fighter-img" src="' + skin.idle + '" alt="You">';
+    html += '<img class="arena-fighter-img" id="arenaPlayerImg" src="' + skin.idle + '" alt="You">';
     html += '<div class="arena-hp-bar" id="arenaPlayerHpBar"><div class="arena-hp-fill arena-hp-green" id="arenaPlayerHp" style="width:100%"></div></div>';
     html += '<div class="arena-hp-text" id="arenaPlayerHpText">' + this._playerHp + '/' + this._playerMaxHp + '</div>';
     html += '</div>';
@@ -307,8 +329,9 @@ const Arena = {
     // VS
     html += '<div class="arena-vs">⚔️</div>';
 
-    // Rakip (sag)
-    html += '<div class="arena-fighter">';
+    // Rakip (sag) — hint rakibin ustunde
+    html += '<div class="arena-fighter" id="arenaOppFighter">';
+    html += '<div class="arena-fight-hint">👆 TAP TO ATTACK!</div>';
     html += '<div class="arena-fighter-name" style="color:var(--red)">' + escapeHtml(this._opponent.display_name) + '</div>';
     html += '<img class="arena-fighter-img arena-opp-flip" id="arenaOppImg" src="assets/dumb_idle.png" alt="Opponent" onclick="Arena.hitOpponent()">';
     html += '<div class="arena-hp-bar"><div class="arena-hp-fill arena-hp-red" id="arenaOppHp" style="width:100%"></div></div>';
@@ -316,8 +339,6 @@ const Arena = {
     html += '</div>';
 
     html += '</div>'; // .arena-fighters
-
-    html += '<div class="arena-fight-hint">👆 TAP OPPONENT TO ATTACK!</div>';
     html += '</div>'; // .arena-fight
 
     container.innerHTML = html;
