@@ -181,7 +181,7 @@ const UI = {
     if (typeof Tutorial !== 'undefined') Tutorial.onClick();
   },
 
-  // ==================== CLICK POP — Basit yukari suzulme ====================
+  // ==================== CLICK POP — Animasyonlu yukari dagilan yazilar ====================
   spawnClickPop(x, y, text, combo) {
     if (this._activePopCount >= MAX_CLICK_POPS) return;
     this._activePopCount++;
@@ -199,15 +199,23 @@ const UI = {
     else if(combo>=5){tier="pop-warm";prefix=pick(wE)+" ";dur=1000;}
     el.className="click-pop "+tier;
     el.textContent=prefix+text;
-    // Rastgele yatay dagilim, animasyon sadece yukari cikiyor
-    const offsetX = (Math.random() - 0.5) * 160;
-    el.style.left = (x - 25 + offsetX) + "px";
-    el.style.top = (y - 20) + "px";
-    // FIX: Pool'dan gelen element'te animasyonu resetle — yoksa sabit kalıyor
+
+    // Rastgele dagitim: genis yatay + dikey fark
+    const spreadX = (Math.random() - 0.5) * 200;
+    const spreadY = (Math.random() - 0.5) * 60;
+    el.style.left = (x - 25 + spreadX) + "px";
+    el.style.top = (y - 20 + spreadY) + "px";
+
+    // Her pop icin rastgele yon (CSS custom property)
+    const curve = (Math.random() - 0.5) * 80; // -40 ~ +40px yana kayma
+    const rot = (Math.random() - 0.5) * 30;   // -15 ~ +15deg donme
+    el.style.setProperty('--pop-curve', curve + 'px');
+    el.style.setProperty('--pop-rot', rot + 'deg');
+
     el.style.animation = "none";
     document.getElementById("gymView").appendChild(el);
-    void el.offsetWidth; // reflow zorla
-    el.style.animation = ""; // CSS'teki animasyon başlar
+    void el.offsetWidth;
+    el.style.animation = "";
     setTimeout(() => {
       el.remove();
       this._activePopCount--;
