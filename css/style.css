@@ -365,13 +365,15 @@ body {
     will-change: transform, opacity;
     animation: popFloat .9s cubic-bezier(.2,.6,.35,1) forwards;
     white-space: nowrap;
+    --pop-curve: 0px;
+    --pop-rot: 0deg;
 }
 
 @keyframes popFloat {
-    0%   { opacity: 0; transform: translateY(10px) scale(.6); }
-    15%  { opacity: 1; transform: translateY(-20px) scale(1.1); }
-    40%  { opacity: 1; transform: translateY(-60px) scale(1); }
-    100% { opacity: 0; transform: translateY(-140px) scale(.9); }
+    0%   { opacity: 0; transform: translateY(10px) translateX(0) scale(.6) rotate(0deg); }
+    15%  { opacity: 1; transform: translateY(-25px) translateX(calc(var(--pop-curve) * 0.3)) scale(1.15) rotate(calc(var(--pop-rot) * 0.5)); }
+    45%  { opacity: 1; transform: translateY(-70px) translateX(calc(var(--pop-curve) * 0.7)) scale(1) rotate(var(--pop-rot)); }
+    100% { opacity: 0; transform: translateY(-150px) translateX(var(--pop-curve)) scale(.85) rotate(var(--pop-rot)); }
 }
 
 .click-pop.pop-normal {
@@ -404,35 +406,35 @@ body {
 }
 
 @keyframes popFloatWarm {
-    0%   { opacity: 0; transform: translateY(10px) scale(.5); }
-    12%  { opacity: 1; transform: translateY(-18px) scale(1.25); }
-    35%  { opacity: 1; transform: translateY(-65px) scale(1); }
-    70%  { opacity: .7; transform: translateY(-120px) scale(.95); }
-    100% { opacity: 0; transform: translateY(-165px) scale(.85); }
+    0%   { opacity: 0; transform: translateY(10px) translateX(0) scale(.5) rotate(0deg); }
+    12%  { opacity: 1; transform: translateY(-22px) translateX(calc(var(--pop-curve) * 0.3)) scale(1.3) rotate(calc(var(--pop-rot) * 0.4)); }
+    40%  { opacity: 1; transform: translateY(-75px) translateX(calc(var(--pop-curve) * 0.7)) scale(1) rotate(var(--pop-rot)); }
+    70%  { opacity: .6; transform: translateY(-130px) translateX(calc(var(--pop-curve) * 0.9)) scale(.95) rotate(var(--pop-rot)); }
+    100% { opacity: 0; transform: translateY(-175px) translateX(var(--pop-curve)) scale(.8) rotate(var(--pop-rot)); }
 }
 
 @keyframes popFloatHot {
-    0%   { opacity: 0; transform: translateY(10px) scale(.4); }
-    10%  { opacity: 1; transform: translateY(-15px) scale(1.35); }
-    30%  { opacity: 1; transform: translateY(-65px) scale(1.05); }
-    65%  { opacity: .6; transform: translateY(-130px) scale(1); }
-    100% { opacity: 0; transform: translateY(-185px) scale(.8); }
+    0%   { opacity: 0; transform: translateY(10px) translateX(0) scale(.4) rotate(0deg); }
+    10%  { opacity: 1; transform: translateY(-20px) translateX(calc(var(--pop-curve) * 0.2)) scale(1.4) rotate(calc(var(--pop-rot) * 0.3)); }
+    35%  { opacity: 1; transform: translateY(-80px) translateX(calc(var(--pop-curve) * 0.6)) scale(1.05) rotate(var(--pop-rot)); }
+    65%  { opacity: .5; transform: translateY(-145px) translateX(calc(var(--pop-curve) * 0.85)) scale(1) rotate(var(--pop-rot)); }
+    100% { opacity: 0; transform: translateY(-200px) translateX(var(--pop-curve)) scale(.75) rotate(var(--pop-rot)); }
 }
 
 @keyframes popFloatFire {
-    0%   { opacity: 0; transform: translateY(10px) scale(.3); filter: brightness(2); }
-    10%  { opacity: 1; transform: translateY(-12px) scale(1.5); filter: brightness(1.4); }
-    30%  { opacity: 1; transform: translateY(-75px) scale(1.1); filter: brightness(1); }
-    60%  { opacity: .6; transform: translateY(-145px) scale(1.05); }
-    100% { opacity: 0; transform: translateY(-210px) scale(.75); }
+    0%   { opacity: 0; transform: translateY(10px) translateX(0) scale(.3) rotate(0deg); filter: brightness(2); }
+    10%  { opacity: 1; transform: translateY(-15px) translateX(calc(var(--pop-curve) * 0.2)) scale(1.55) rotate(calc(var(--pop-rot) * 0.3)); filter: brightness(1.4); }
+    30%  { opacity: 1; transform: translateY(-85px) translateX(calc(var(--pop-curve) * 0.6)) scale(1.1) rotate(var(--pop-rot)); filter: brightness(1); }
+    60%  { opacity: .5; transform: translateY(-160px) translateX(calc(var(--pop-curve) * 0.85)) scale(1.05) rotate(var(--pop-rot)); }
+    100% { opacity: 0; transform: translateY(-225px) translateX(var(--pop-curve)) scale(.7) rotate(var(--pop-rot)); }
 }
 
 @keyframes popFloatUltra {
-    0%   { opacity: 0; transform: translateY(10px) scale(.2); filter: hue-rotate(0deg) brightness(3); }
-    8%   { opacity: 1; transform: translateY(-8px) scale(1.7); filter: hue-rotate(60deg) brightness(1.5); }
-    25%  { opacity: 1; transform: translateY(-70px) scale(1.1); filter: hue-rotate(180deg); }
-    55%  { opacity: .7; transform: translateY(-150px) scale(1.15); filter: hue-rotate(300deg); }
-    100% { opacity: 0; transform: translateY(-240px) scale(.6); filter: hue-rotate(360deg); }
+    0%   { opacity: 0; transform: translateY(10px) translateX(0) scale(.2) rotate(0deg); filter: hue-rotate(0deg) brightness(3); }
+    8%   { opacity: 1; transform: translateY(-10px) translateX(calc(var(--pop-curve) * 0.15)) scale(1.8) rotate(calc(var(--pop-rot) * 0.2)); filter: hue-rotate(60deg) brightness(1.5); }
+    25%  { opacity: 1; transform: translateY(-80px) translateX(calc(var(--pop-curve) * 0.5)) scale(1.1) rotate(calc(var(--pop-rot) * 0.6)); filter: hue-rotate(180deg); }
+    55%  { opacity: .6; transform: translateY(-165px) translateX(calc(var(--pop-curve) * 0.8)) scale(1.15) rotate(var(--pop-rot)); filter: hue-rotate(300deg); }
+    100% { opacity: 0; transform: translateY(-260px) translateX(var(--pop-curve)) scale(.5) rotate(var(--pop-rot)); filter: hue-rotate(360deg); }
 }
 
 .click-particle {
@@ -1994,68 +1996,106 @@ body {
 }
 .arena-refresh-btn:hover { border-color: #888; color: #ccc; }
 
-/* Arena Fight Screen */
-.arena-fight { padding: 10px 0; }
+/* Arena Fight Screen — fullscreen */
+.arena-fight {
+  position: relative; padding: 0;
+  display: flex; flex-direction: column;
+  min-height: calc(100vh - 120px); /* modal header'i cikar */
+  justify-content: center;
+}
 .arena-timer-bar {
-  text-align: center; margin-bottom: 12px;
+  text-align: center; padding: 10px 0 6px;
 }
 .arena-timer {
-  font-family: 'Bangers', cursive; font-size: 22px;
-  color: var(--gold); letter-spacing: 1px;
+  font-family: 'Bangers', cursive; font-size: 26px;
+  color: var(--gold); letter-spacing: 2px;
 }
 .arena-fighters {
-  display: flex; align-items: center; justify-content: center; gap: 8px;
+  display: flex; align-items: center; justify-content: space-between;
+  flex: 1; padding: 0 8px; gap: 4px;
 }
-.arena-fighter { flex: 1; text-align: center; max-width: 150px; }
+.arena-fighter {
+  flex: 1; text-align: center;
+  display: flex; flex-direction: column; align-items: center;
+  position: relative;
+}
 .arena-fighter-name {
-  font-family: 'Outfit', sans-serif; font-size: 12px; font-weight: 700;
-  margin-bottom: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 700;
+  margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  max-width: 100%;
 }
 .arena-fighter-img {
-  width: 100px; height: 100px; object-fit: contain;
+  width: 140px; height: 140px; object-fit: contain;
   image-rendering: pixelated; transition: transform .08s;
 }
 .arena-opp-flip { transform: scaleX(-1); cursor: pointer; }
+.arena-opp-flip:active { transform: scaleX(-1) scale(.85); }
 .arena-opp-flip:hover { filter: brightness(1.2); }
+/* Oyuncuya vurulunca sarsinti */
+.arena-player-hit { animation: arenaPlayerShake .25s ease-out; }
+@keyframes arenaPlayerShake {
+  0%   { transform: translateX(0); }
+  20%  { transform: translateX(-8px) rotate(-3deg); }
+  40%  { transform: translateX(6px) rotate(2deg); }
+  60%  { transform: translateX(-4px) rotate(-1deg); }
+  80%  { transform: translateX(2px); }
+  100% { transform: translateX(0); }
+}
 .arena-vs {
-  font-size: 28px; flex-shrink: 0;
+  font-size: 32px; flex-shrink: 0; padding: 0 2px;
   animation: arenaPulse 1s ease-in-out infinite alternate;
 }
-@keyframes arenaPulse { from { transform: scale(1); } to { transform: scale(1.15); } }
+@keyframes arenaPulse { from { transform: scale(1); } to { transform: scale(1.2); } }
 
 /* Arena HP Bars */
 .arena-hp-bar {
-  width: 100%; height: 10px; background: #222;
-  border-radius: 5px; overflow: hidden; margin: 6px 0 2px;
+  width: 100%; height: 12px; background: #222;
+  border-radius: 6px; overflow: hidden; margin: 8px 0 2px;
   transition: box-shadow .2s;
 }
-.arena-hp-bar.arena-hit { animation: arenaHitShake .2s; }
+.arena-hp-bar.arena-hit { animation: arenaHitShake .25s; }
 @keyframes arenaHitShake {
   0%,100% { transform: translateX(0); }
-  25% { transform: translateX(-3px); }
-  75% { transform: translateX(3px); }
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-2px); }
+  80% { transform: translateX(2px); }
 }
-.arena-hp-fill { height: 100%; border-radius: 5px; transition: width .2s; }
+.arena-hp-fill { height: 100%; border-radius: 6px; transition: width .2s; }
 .arena-hp-green { background: linear-gradient(90deg, #22AA44, #44DD66); }
 .arena-hp-red { background: linear-gradient(90deg, #CC2222, #FF4444); }
-.arena-hp-text { font-size: 10px; color: #666; }
+.arena-hp-text { font-size: 11px; color: #777; font-weight: 600; }
+
+/* Hint — rakibin ustunde */
 .arena-fight-hint {
-  text-align: center; margin-top: 14px;
-  font-size: 13px; color: var(--gold); font-weight: 700;
+  position: absolute; top: -18px; left: 50%; transform: translateX(-50%);
+  font-size: 11px; color: var(--gold); font-weight: 700;
+  white-space: nowrap; pointer-events: none;
   animation: arenaHintPulse 1.5s ease-in-out infinite;
 }
-@keyframes arenaHintPulse { 0%,100% { opacity: 1; } 50% { opacity: .5; } }
+@keyframes arenaHintPulse { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
 
-/* Arena Damage Pop */
+/* Arena Damage Pop — rakibe vurdugumuzda */
 .arena-dmg-pop {
   position: absolute; font-family: 'Bangers', cursive;
-  font-size: 18px; color: var(--red); pointer-events: none;
+  font-size: 20px; color: var(--red); pointer-events: none;
   animation: arenaDmgFloat .7s ease-out forwards;
   text-shadow: 0 0 6px rgba(255,0,0,.5);
 }
+/* Arena Damage Pop — rakip bize vurdugunda */
+.arena-dmg-pop-player {
+  position: absolute; font-family: 'Bangers', cursive;
+  font-size: 18px; color: #FF8844; pointer-events: none;
+  animation: arenaDmgFloatPlayer .7s ease-out forwards;
+  text-shadow: 0 0 6px rgba(255,136,68,.5);
+}
 @keyframes arenaDmgFloat {
+  0% { opacity: 1; transform: translateY(0) scale(1.3); }
+  100% { opacity: 0; transform: translateY(-50px) scale(.7); }
+}
+@keyframes arenaDmgFloatPlayer {
   0% { opacity: 1; transform: translateY(0) scale(1.2); }
-  100% { opacity: 0; transform: translateY(-40px) scale(.8); }
+  100% { opacity: 0; transform: translateY(-45px) scale(.7); }
 }
 
 /* Arena Result Screen */
@@ -2085,3 +2125,13 @@ body {
   border-radius: 8px; cursor: pointer; transition: .15s;
 }
 .arena-btn-secondary:hover { border-color: #888; color: #ccc; }
+
+/* Arena responsive — kucuk ekranlarda karakterler buyuk kalsin */
+@media (max-width: 420px) {
+  .arena-fighter-img { width: 130px; height: 130px; }
+  .arena-fighters { padding: 0 4px; gap: 2px; }
+  .arena-vs { font-size: 26px; }
+}
+@media (min-width: 421px) {
+  .arena-fighter-img { width: 160px; height: 160px; }
+}
