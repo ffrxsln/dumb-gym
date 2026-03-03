@@ -131,6 +131,13 @@ const SFX = {
     this._tone(100, 0.08, 'square', 0.2, 0.03);
   },
 
+  /* 👊 Opponent hits player - heavy punch incoming */
+  oppHitPlayer() {
+    this._noise(0.1, 0.45);
+    this._tone(120, 0.1, 'sawtooth', 0.35);
+    this._tone(70, 0.12, 'square', 0.25, 0.05);
+  },
+
   /* 🎉 Bear Killed - victory fanfare */
   bearKill() {
     this._tone(523, 0.08, 'sine', 0.3);
