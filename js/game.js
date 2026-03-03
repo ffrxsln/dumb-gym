@@ -159,7 +159,7 @@ const Game = {
 
   /* ---- Upgrade Satın Al ---- */
   buyUpgrade(id) {
-    const u = UPGRADES.find(x => x.id === id);
+    const u = UPGRADES_MAP.get(id);
     if (!u) return;
     const cost = this.getUpgradeCost(u);
     const owned = this.getOwned(u.id);
@@ -180,7 +180,7 @@ const Game = {
 
   /* ---- N adet satın al ---- */
   buyUpgradeN(id, n) {
-    const u = UPGRADES.find(x => x.id === id);
+    const u = UPGRADES_MAP.get(id);
     if (!u) return;
     let bought = 0;
     const limit = n === -1 ? 9999 : n;
@@ -331,14 +331,8 @@ const Game = {
       if (last === yesterday) {
         this.state.streak++;
         UI.toast('🔥 Day ' + this.state.streak + ' streak!');
-      } else if (last !== today) {
-        // BUG FIX: Sadece gerçekten yeni gündeyse streak sıfırla
-        if (last !== '') {
-          this.state.streak = 1;
-        } else {
-          // İlk giriş
-          this.state.streak = 1;
-        }
+      } else {
+        this.state.streak = 1;
       }
       this.state.lastLogin = Date.now();
 

@@ -220,13 +220,12 @@ const Leaderboard = {
                 const isMe = entry.user_id === myId;
                 const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '#' + rank;
 
+                const safeName = escapeHtml(entry.display_name || 'Anonymous');
+                const safeMethod = escapeHtml(entry.login_method || 'anonymous');
+
                 let avatar = '👤';
                 if (safeMethod === 'telegram') avatar = '📱';
                 else if (safeMethod === 'wallet' || entry.wallet) avatar = '🔗';
-
-                const safeName = escapeHtml(entry.display_name || 'Anonymous');
-                // FIX: Tüm harici alanları escape et — sadece name değil
-                const safeMethod = escapeHtml(entry.login_method || 'anonymous');
                 const scoreVal = entry[this.sortBy] || 0;
                 const scoreLabel = this.sortBy === 'level' ? ('Lvl ' + scoreVal) : ('⭐ ' + scoreVal);
 

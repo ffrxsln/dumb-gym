@@ -12,6 +12,7 @@ const UI = {
   _activePopCount: 0,    // BUG FIX: Pop element sayacı
   _popPool: [],          // FIX: Element pooling - GC pressure azalt
   _activeParticles: 0,   // BUG FIX: Parçacık sayacı
+  _particlePool: [],     // FIX: Particle element pooling - GC pressure azalt
   _activeToasts: 0,      // BUG FIX: Toast sayacı
   _buyMode: '1x',        // YENİ: Satın alma modu
 
@@ -220,7 +221,7 @@ const UI = {
     const shapes = ['', 'star', 'spark']; // CSS class varyasyonu
     for (let i = 0; i < actualCount; i++) {
       this._activeParticles++;
-      const p = document.createElement('div');
+      const p = this._particlePool.length > 0 ? this._particlePool.pop() : document.createElement('div');
       const shape = shapes[Math.floor(Math.random() * shapes.length)];
       p.className = 'click-particle' + (shape ? ' ' + shape : '');
       p.style.left = x + 'px';
@@ -231,10 +232,15 @@ const UI = {
       const dist = 30 + Math.random() * 50;
       p.style.setProperty('--px', Math.cos(angle) * dist + 'px');
       p.style.setProperty('--py', Math.sin(angle) * dist - 20 + 'px');
+      // Pool'dan gelen element'te animasyonu resetle
+      p.style.animation = 'none';
       document.getElementById('gymView').appendChild(p);
+      void p.offsetWidth;
+      p.style.animation = '';
       setTimeout(() => {
         p.remove();
         this._activeParticles--;
+        if (this._particlePool.length < MAX_PARTICLES) this._particlePool.push(p);
       }, 550);
     }
   },
@@ -628,7 +634,7 @@ const UI = {
     if (items.length === 0) { this.renderShop(); return; }
     items.forEach(el => {
       const id = el.dataset.id;
-      const u = UPGRADES.find(x => x.id === id);
+      const u = UPGRADES_MAP.get(id);
       if (!u) return;
       const owned = Game.getOwned(u.id);
       const maxed = owned >= u.max;

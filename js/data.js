@@ -99,6 +99,9 @@ const BEARS = {
   boss:  { label: '👑 BEAR MARKET BOSS!', img: 'bear_boss',  ko: 'bear_boss_ko',  size: '150px', rewardMult: 80 },
 };
 
+// FIX: O(1) lookup icin id→upgrade Map
+const UPGRADES_MAP = new Map(UPGRADES.map(u => [u.id, u]));
+
 /* ---- Lucky Spin Ödülleri — düşürüldü ---- */
 const LUCKY_PRIZES = [
   { weight: 30, text: '💰 +{x} coins!',          calc: () => Game.state.clickPower * 30 },
