@@ -24,7 +24,7 @@ const Arena = {
   _oppDps: 0,
   _timer: 0,
   _interval: null,
-  _oppAttackInterval: null,
+  _oppAttackTimeout: null,
   _result: null,
   _cachedOpponents: [],
 
@@ -83,7 +83,8 @@ const Arena = {
   /* ==================== STAT HESAPLAMA ==================== */
   _calcOpponentStats(opp) {
     const hp = 10 + (opp.level || 1) * 5 + (opp.prestige || 0) * 20;
-    const dps = Math.max(1, Math.floor((opp.click_power || 1) * 0.15));
+    // Daha sik vuruyor (~0.75s avg) ama vurus basi hasar biraz dusuk — toplam DPS dengelenmis
+    const dps = Math.max(1, Math.floor((opp.click_power || 1) * 0.11));
     return { hp, dps };
   },
 
@@ -119,9 +120,12 @@ const Arena = {
     this._renderFight();
     SFX.bearAttack();
 
-    // Rakip otomatik saldiri
-    this._oppAttackInterval = setInterval(() => {
+    // Rakip otomatik saldiri — degisken hizda, agresif
+    this._oppAttackTick = () => {
       if (!this._active) return;
+
+      SFX.oppHitPlayer();
+
       this._playerHp -= this._oppDps;
       this._updateFightUI();
 
@@ -141,6 +145,13 @@ const Arena = {
         playerImg.classList.add('arena-player-hit');
       }
 
+      // Rakip vurus animasyonu — one atilsin
+      const oppImg = document.getElementById('arenaOppImg');
+      if (oppImg) {
+        oppImg.style.transform = 'scaleX(-1) translateX(12px) scale(1.08)';
+        setTimeout(() => { oppImg.style.transform = ''; }, 120);
+      }
+
       // Oyuncu tarafina hasar pop
       const playerFighter = document.getElementById('arenaPlayerFighter');
       if (playerFighter) {
@@ -153,8 +164,14 @@ const Arena = {
         setTimeout(() => pop.remove(), 700);
       }
 
-      if (this._playerHp <= 0) this._endFight(false);
-    }, 1000);
+      if (this._playerHp <= 0) { this._endFight(false); return; }
+
+      // Sonraki vurus: 600-1100ms arasi rastgele — bazen hizli patlatiyor
+      const nextDelay = 600 + Math.floor(Math.random() * 500);
+      this._oppAttackTimeout = setTimeout(this._oppAttackTick, nextDelay);
+    };
+    // Ilk vurus 800ms sonra
+    this._oppAttackTimeout = setTimeout(this._oppAttackTick, 800);
 
     // Geri sayim
     this._interval = setInterval(() => {
@@ -212,9 +229,9 @@ const Arena = {
     this._active = false;
     this._lastFight = Date.now();
     clearInterval(this._interval);
-    clearInterval(this._oppAttackInterval);
+    clearTimeout(this._oppAttackTimeout);
     this._interval = null;
-    this._oppAttackInterval = null;
+    this._oppAttackTimeout = null;
 
     if (won) {
       SFX.bearKill();
@@ -422,9 +439,9 @@ const Arena = {
     if (this._active) {
       this._active = false;
       clearInterval(this._interval);
-      clearInterval(this._oppAttackInterval);
+      clearTimeout(this._oppAttackTimeout);
       this._interval = null;
-      this._oppAttackInterval = null;
+      this._oppAttackTimeout = null;
     }
     this._stopCooldownTimer();
     document.getElementById('arenaModal').classList.remove('show');
